@@ -1,0 +1,30 @@
+RX3 telemetry bring-up — 2026-10-06
+
+Base: Tratosca/rx3-toolkit cc17a1fde3016a44440948e50bde72f430da34d9.
+Purpose: track small reviewable changes for a future upstream PR. Local repository only; no fork or PR published yet.
+
+Target: XDJ-RX3 firmware 1.19, standalone playback; Now Playing plus required Core only. User requests upstream behavior unchanged initially. Telnet and unrelated performance modules should remain disabled.
+
+Observed:
+- macOS recognizes RX3 firmware 1.19 and a Pioneer USB network interface.
+- 25-second UDP 50123 listen received zero datagrams.
+- User screenshot subsequently confirmed installation FAILED during core compilation: invalid linker name in -fuse-ld=lld. This was not a successful on-deck telemetry test.
+- Source UI self-test passed with 57 operations.
+- Homebrew lld installation failed because no bottle is available on this host; no security/trust checks bypassed.
+- Existing Rust toolchain includes ld.lld; compiler/linker pairing still needs verification.
+
+Security review (focused, not certification):
+- Supplied receiver binds all interfaces and has no sender authentication.
+- decode() raises AttributeError for decks=[null,{}] and TypeError for a loaded deck with bpmX100="bad". Reproduced locally without sending network traffic.
+- Optional Telnet module opens plaintext login service. Keep disabled.
+- Core uses privileged volatile patches and restarts rbp. Filesystem/executable/instruction guards reduce risk, not a guarantee against crashes or persistent damage.
+- Integrated Now Playing documentation says physical hardware validation remains pending.
+
+Next:
+1. Reproduce build with working ARM compiler and ELF linker; add a narrowly scoped upstream-quality fix if needed.
+2. Verify generated artifact/module selection locally. Keep key and autoexec.bin untracked.
+3. User-controlled installation and stock-restart check; capture exact build hash, modules, and observed outcome.
+4. Receive and validate track/tempo telemetry; no claims of position/phrase/mixer parity yet.
+5. Add regression coverage for any proposed source fixes and separate hardware observations from automated tests.
+
+Never commit keys, manufacturer firmware, USB contents, music, device serials or private packet captures. Use ignored local/ for private build/test artifacts. Do not flash or downgrade firmware as part of this bring-up.
