@@ -1,0 +1,19 @@
+RX3 1.19 read-only diagnostic baseline
+
+Run from repository root:
+  python scripts/telemetry_diagnostic.py --source RX3_USB_IPV4 --seconds 120 --output local/captures/unique-session.jsonl
+
+Receiver sends no traffic. The source filter is not authentication. It accepts a bounded JSON schema and records raw plus explicitly partial normalized fields. Missing title, position, phrase and waveform remain unknown. Raw onAir is not a loudness or playback measurement. Three seconds without a valid message produces a stale event. This recorder is not yet a live TouchDesigner adapter or a replay-order filter.
+
+Physical sequence, performed by operator:
+1. Note track and displayed BPM; play and pause.
+2. Center tempo; note displayed value.
+3. Cue jump; short loop and exit.
+4. Load a different analyzed track; note title and BPM.
+5. After recording completes, stop playback and safely remove the music USB.
+6. Connect USB to computer for read-only inventory, manifest/log review and export analysis association.
+7. Separately verify normal stock startup without the mod stick. Do not treat telemetry success as stock recovery verification.
+
+Private captures/builds live under ignored local/. Commit only redacted summaries and small synthetic fixtures. No serial numbers, keys, manufacturer binaries or music in PRs.
+
+Deck changes are deferred until source identity/analysis lookup is understood and a specific position accessor is verified offline. Do not add a shell, memory scan endpoint, arbitrary file reads, flash writes or remote code loader.
