@@ -28,3 +28,11 @@ Next:
 5. Add regression coverage for any proposed source fixes and separate hardware observations from automated tests.
 
 Never commit keys, manufacturer firmware, USB contents, music, device serials or private packet captures. Use ignored local/ for private build/test artifacts. Do not flash or downgrade firmware as part of this bring-up.
+
+Build result:
+- Unmodified upstream build succeeds with Homebrew LLVM clang and the installed Rust toolchain's gcc-ld/ld.lld directory on PATH.
+- Firmware 1.19, explicit selection now-playing (dependency closure includes core).
+- Generated autoexec.bin is 864256 bytes; SHA-256 cab48ee45c4b4a28086e97f52bf0c49afdbd9064436b39ef485d5e368211bfde.
+- Output is ignored local/build-now-playing/. Not copied to USB by this verification.
+- Desktop launcher now points at this repository with explicit compiler/linker environment. Existing running UI must be closed and reopened to inherit it.
+- No runtime source patch required so far; no hardware success claimed.
