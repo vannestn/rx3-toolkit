@@ -183,3 +183,24 @@ of 1909 music/export files unchanged by size and mtime. Receive-only capture
 for UDP 50123/50124/50125/50126 started before operator reinsertion at
 local/captures/combined-20261007-01.jsonl. Physical execution, position units,
 track association and uninterrupted playback remain pending.
+
+Combined diagnostic first physical observations — 2026-10-07:
+Operator reports the deck is running with a track playing. USB-B startup
+preflight arrived from 169.254.159.144; its volatile mount and path guards
+both returned 0. Live Now Playing and raw position streams arrived on UDP
+50123/50124. Deck 1 reported track ID 150 with approximately 123 BPM, while
+the title field remained empty. One uninterrupted position segment advanced
+at approximately 44,100 raw units per second over several 10-second windows;
+later samples jumped and wrapped during operator activity. These observations
+suggest source audio frames but do not yet prove playhead time, loop/cue
+semantics, or audio continuity. No UDP 50126 exit-status report had arrived
+at the time of this note. Do not infer successful shell exit from native stream
+traffic. Await operator action markers and second-track load for validation.
+
+Persistent bench recorder — 2026-10-07:
+Added a receive-only SQLite rolling listener for all four USB-B ports. It
+prunes data older than 15 minutes and attaches wall-clock timestamps, allowing
+inspection starting at the operator's latest message. It is a background
+process for this computer session only; no reboot autostart is installed.
+Existing fixed capture was imported into the rolling window, then removed.
+The local database and process log remain ignored by Git. See POSITION-TEST.txt.

@@ -28,6 +28,18 @@ The capture records raw values and a stale-stream event after three seconds.
 Build ID in exit status must match the installed manifest. A successful shell
 status is not physical validation of position or uninterrupted playback.
 
+For ongoing bench testing, use scripts/rolling_diagnostic_listener.py instead.
+It listens on the same four ports until terminated (or the computer reboots),
+keeps only the most recent 15 minutes in local/captures/rx3-rolling.sqlite3,
+and records Unix wall timestamps for comparison with an operator message.
+Run one listener at a time; the fixed-duration capture and rolling listener
+cannot bind the same ports simultaneously. No launch service or reboot
+autostart is installed. Query a short interval with, for example:
+  python scripts/rolling_diagnostic_listener.py --show-last-seconds 30
+  python scripts/rolling_diagnostic_listener.py --since-epoch 1791347330
+The default database is ignored by Git. Query output and retained records can
+contain track metadata; do not commit the database or raw output.
+
 Operator sequence (one deck first)
 - Load a known analyzed track after boot. Note title and center-pitch BPM.
 - Play at centered pitch for 15 seconds. Report the displayed elapsed time at
