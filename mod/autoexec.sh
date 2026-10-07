@@ -3,6 +3,13 @@
 # RX3 volatile runtime orchestrator. Feature logic lives in module directories.
 
 USB="$1"
+# A RAM root alone is insufficient: /root or a nested target may be mounted
+# persistently. Check before temporary files, module sourcing or any writes.
+[ -r /mnt/iso/lib/volatile-guard.sh ] || exit 1
+. /mnt/iso/lib/volatile-guard.sh || exit 1
+volatile_mount_layout /proc/mounts && volatile_path_layout "" || exit 1
+# Do not inherit a staging destination from the launch environment.
+RUNTIME_STAGE_DIR=/root/pdj/.rx3-stage.$$
 # Sample the held panel state before logs, module loading, locks or patching.
 # An unreadable frame is not evidence that SHIFT is released: fail closed.
 SAFE_MODE_PROBE=$(sh /mnt/iso/lib/safe-mode.sh)

@@ -4,6 +4,8 @@ Purpose: establish raw position semantics before using it to select beats or
 phrases. Hardware result remains PENDING. Do not run during a performance.
 
 Before loading
+Use local/build-position-audited (see PACKAGE-SAFETY-AUDIT.txt), not the
+superseded first diagnostic build. No recording or firmware update in progress.
 1. Stop deck playback; use the deck's normal USB stop/eject procedure. Connect
    SOUND_PRO to the computer. Do not pull the stick during active USB access.
 2. Agent backs up the exact existing autoexec.bin, manifest and any runtime

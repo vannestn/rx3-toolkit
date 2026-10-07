@@ -1,0 +1,139 @@
+RX3 position diagnostic — package safety audit
+2026-10-06; firmware 1.19; host-only review, no deck or USB writes
+
+Conclusion
+No direct flash, bootloader, firmware-updater, NVRAM or persistent-settings write
+path was found in the selected package. This is a privileged RAM modification,
+not a firmware update. That does NOT establish zero permanent-damage risk:
+incorrect hooks run inside the native player, and native side effects, kernel
+behavior, timing and recovery cannot be exhaustively certified from source.
+The previous candidate had guard gaps and is superseded. The audited candidate
+is eligible only for a controlled, stopped-player hardware experiment, not a
+claim of proven safe operation or guaranteed recovery.
+
+Scope / evidence
+Reviewed autoexec startup, safe-mode probe, compatibility, complete module API,
+resource staging/rollback and selected Core/Now Playing/position module scripts;
+C constructor and selected module startup/shutdown, hook installer, memory-code
+writer, audio observer, worker serialization and host recorder; builder/encryption
+and actual decrypted package contents. Checked inactive bundle configuration
+predicates: unrelated compiled modules require environment settings not exported
+by this selection. This is not a line-by-line certification of all inactive
+performance modules or the closed-source player/kernel/vendor autorun loader.
+
+Original candidate: e717f4d1cfd551a48085cf6987088bb749ae0e90b47f73227cf50e8e2136acc4
+Audited replacement: f008b7596de357993c62fa0f30925dd83b2edb7ffca76a2adb8e766d8b762ead
+Size: 876544 bytes. Location: local/build-position-audited/autoexec.bin.
+Manifest: core, now-playing, position-diagnostic; firmware 1.19.
+Decrypted 14-file inventory matches source assets/scripts and independently
+built ARM library byte-for-byte. No extra module scripts, updater, Telnet or
+shell endpoint in the image. The Core ELF still includes inactive features,
+as upstream does; absence of their scripts is not absence of their machine code.
+Package audit JSON lives alongside the build (package-audit-final.json).
+
+Findings fixed
+F1 — Persistence guard incomplete (potentially serious, conditional).
+The old script checked the root filesystem and only an exact /root/pdj mount.
+A RAM root with a persistent /root parent mount or nested rbp/file mount could
+pass. This was an unprotected layout, not evidence that this deck uses it.
+Added mod/lib/volatile-guard.sh before the panel probe, temporary-file creation
+or module sourcing. It rejects persistent relevant mounts, nested target mounts,
+missing/malformed mount evidence and redirected/nonregular fixed write targets.
+Pinned the stage directory rather than inheriting it from the environment.
+Unexpected legitimate layouts can now refuse the mod; no remount/repair attempt.
+Host fixtures exercise /root, /root/pdj, rbp, /tmp, nested log mounts and symlinks.
+This is an early check, not isolation against a hostile kernel or concurrent
+root process changing mounts/paths later. Trusted device and USB remain assumptions.
+
+F2 — Firmware scope was broader at runtime than in the UI.
+compatibility.sh accepts 1.20 and three unidentified historical hashes too.
+The diagnostic now requires ACCEPTED to equal the upstream-recorded 1.19 stock
+hash cf309238491e73cdbdc1f08a09f7a3177e079068 before its setting is exported.
+The orchestrator computes that identity (normalizing only registered patch words).
+A different identity fails prepare; staged assets are discarded before commit,
+player stop or code-file writes. Tested unknown/empty/1.20 rejection and 1.19
+acceptance. Independent firmware ABI disassembly remains unavailable locally.
+
+F3 — An interrupted Now Playing writer could strand the worker.
+The inherited snapshot reader spun forever while revision stayed odd. This
+could also block worker join at shutdown. Bounded it to three attempts; a busy
+snapshot drops the datagram instead of inventing deck state. Tested a permanently
+odd revision returning failure and a stable revision returning correct fields.
+This fixes one loop, not every inherited teardown wait (see R1).
+
+F4 — Diagnostic reinsertion returned failure for an unchanged setting.
+module_export returns 1 when a setting already matches. The new prepare function
+mistook that normal case for failure. It now consumes that status correctly.
+Tested identical-setting reinsertion. The prior behavior aborted before mutation;
+it was a reliability defect, not an identified bricking mechanism.
+
+Write / privilege inventory
+- Host builder: encrypted autoexec.bin + descriptive manifest in chosen local
+  output folder. It does not generate XDJRX3.UPD or send USB commands. Existing
+  atomic rename/flush/read-back hash checks retained.
+- USB: startup-probe.txt; optional logs only if selected (not selected here).
+- RAM filesystem: /tmp lock/state/readiness/core log and /root/pdj staged shared
+  library/artwork. Core still registers the existing guarded four-byte private
+  image-ID patch to the RAM-backed rbp file, even for this minimal profile.
+- Process memory: six guarded detours (four existing Now Playing, TimeStretch
+  and PcmReader::load), anonymous trampolines, instruction-cache maintenance.
+  Existing mprotect failures restore prior bytes where implemented; they do not
+  provide transactional isolation against executing threads.
+- Process control: terminate/restart rbp; SIGKILL fallback after grace period.
+- Kernel interface: read the existing panel SPI device; write the existing
+  vendor /proc USB connect/mount notifications after relaunch. These are not
+  raw storage writes, but their closed-source/driver behavior is not certified.
+- Network: outgoing USB link-local UDP plus local wake sockets; no command
+  receiver. Position callback has no I/O, allocation, audio-buffer access or
+  retry cycle. Its bounded mailbox drops contention; worker capped at 20 Hz.
+
+Remaining risks / unresolved evidence
+R1. Upstream audio release and notification/callback drains have unbounded waits.
+The code uses 8-byte instruction replacement without general thread quiescence;
+core load-hook cleanup also lacks an explicit in-flight load-callback drain.
+The selected path installs at preload startup after stopping the old process,
+which avoids intentional live attachment, but constructor ordering has not been
+independently verified in the original binary. No hot attach/unload tests or
+API should be introduced. A hang/crash can interrupt playback; shell stop has a
+kill fallback, but that is not proof every failure is recoverable.
+R2. Prologue and whole-binary identity checks do not prove function signatures,
+reader offsets, load return semantics or timing. Existing upstream definitions
+are reused; no original matching rbp binary was available for independent ABI
+verification. Native title copying also retains upstream structure assumptions.
+The new observation must remain raw until physical validation.
+R3. Startup rollback covers specified failures, not every late crash or freeze.
+Readiness is not a lasting health guarantee. Restore can itself fail and leave
+the player stopped. Some recovery branches report relaunch without proving
+long-term operation. Power loss/native preference writes are outside this audit;
+no unconditional automatic recovery claim is justified.
+R4. User reported one successful stock restart without the mod stick. This is
+useful session evidence, not a tested hard-brick recovery or firmware downgrade.
+R5. Source/host tests cannot measure real audio deadlines, added worker resource
+cost or USB-stack interactions. Two-deck playback remains a later hardware gate.
+
+Validation
+Full suite after filesystem/firmware/reinsertion changes: 471 tests, no failures,
+15 skipped. After the final bounded-snapshot change: 46 relevant tests passed,
+including five safety tests, diagnostic, hook-import, startup, staging, module
+API and safe-mode coverage. Skips are not passes; independent firmware ABI and
+optional corpus/tool-dependent tests were not established by this run.
+ARM compilation with -Wall -Wextra -Werror passes; import allowlist unchanged.
+Eight relevant shell files pass sh -n. Actual 14-file package comparison passes.
+Tests use synthetic host fixtures and localhost packets; no firmware function
+was executed and no physical RX3 acceptance is claimed.
+
+Recovery research
+Official AlphaTheta RX3 firmware update guide:
+https://pioneer-support.zendesk.com/hc/en-us/articles/5097637194137-XDJ-RX3-Firmware-Update-Guide
+It documents the normal USB updater and directs stalled/failed updates to
+customer support. It does not establish old-version rollback, same-version
+reflash or recovery from arbitrary boot failure. Updating/flashing is NOT a
+step in our diagnostic or an experiment to prove recovery.
+
+Next
+Do not install the superseded e717... candidate. Preserve/back up the exact
+working USB image before replacing it with the audited candidate. Use the
+stopped-player, no-recording test in testing/rx3-1.19/POSITION-TEST.txt; do not
+combine it with a firmware update. After any anomaly, stop testing and return
+to the already-observed stock-start path without the mod stick. If stock boot
+fails, stop experiments and use manufacturer support, not speculative flashing.

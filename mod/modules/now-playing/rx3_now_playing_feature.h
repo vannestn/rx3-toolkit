@@ -226,11 +226,12 @@ static void now_playing_title(struct now_playing_text *text, const uint16_t *tit
     now_playing_put(text, "\"", 1u);
 }
 
-/* A consistent copy of one deck's record, retried while a load is writing. */
-static void now_playing_read_deck(unsigned int index, struct now_playing_deck *copy)
+/* Bounded snapshot: a busy/interrupted writer must not trap the worker or
+   prevent pthread_join during cleanup. Drop this datagram and try later. */
+static int now_playing_read_deck(unsigned int index, struct now_playing_deck *copy)
 {
     struct now_playing_deck *deck = &now_playing_decks[index];
-    for (;;) {
+    for (unsigned int attempt = 0; attempt < 3u; attempt++) {
         unsigned int before = deck->revision;
         if (before & 1u)
             continue;
@@ -240,8 +241,9 @@ static void now_playing_read_deck(unsigned int index, struct now_playing_deck *c
         memcpy(copy->title, deck->title, sizeof(copy->title));
         __sync_synchronize();
         if (deck->revision == before)
-            return;
+            return 1;
     }
+    return 0;
 }
 
 /* Every datagram carries both decks whole, so a listener that missed one, or
@@ -259,7 +261,7 @@ static void now_playing_send(const char *reason)
     now_playing_literal(&text, "\",\"decks\":[");
     for (unsigned int index = 0; index < 2u; index++) {
         struct now_playing_deck deck;
-        now_playing_read_deck(index, &deck);
+        if (!now_playing_read_deck(index, &deck)) return;
         int bpm = ((now_playing_deck_int_fn)NOW_PLAYING_PLAY_BPM)(index);
         if (!deck.loaded || bpm < 0 || bpm == 0xffff)
             bpm = 0;

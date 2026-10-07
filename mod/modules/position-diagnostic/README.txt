@@ -8,7 +8,9 @@ What changes on the deck
 Uses the existing shared TimeStretch audio observer and PcmReader::load identity
 hook. Core now installs the identity hook for an audio-only client before its
 UI-free early return. No extra UI hooks are enabled. Existing executable and
-instruction guards remain. A failed identity install stops the modules and
+instruction guards remain. The prepare hook additionally requires the exact
+upstream-recorded firmware 1.19 player hash. An early read-only path/mount guard
+now refuses layouts that cannot establish volatile write destinations. A failed identity install stops the modules and
 runs the existing cleanup path. With only Now Playing selected, this diagnostic
 is not started and the new identity hook is not requested.
 

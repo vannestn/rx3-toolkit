@@ -701,6 +701,7 @@ def build_runtime(
         library.mkdir()
         shutil.copy2(root / "mod/lib/module-api.sh", library / "module-api.sh")
         shutil.copy2(root / "mod/lib/safe-mode.sh", library / "safe-mode.sh")
+        shutil.copy2(root / "mod/lib/volatile-guard.sh", library / "volatile-guard.sh")
         compatibility_target = modules / "compatibility/module.sh"
         compatibility_target.parent.mkdir(parents=True)
         shutil.copy2(compatibility, compatibility_target)
