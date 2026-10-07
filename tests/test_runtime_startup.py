@@ -124,8 +124,9 @@ static int rx3_write_guarded(unsigned long a,const void *e,const void *r,unsigne
 static void rx3_input_bind_mode_keys(void (*f)(void)){bound+=f==leave_performance_panel;}
 static void rx3_panels_bind_refresh(void (*f)(void)){bound+=f==refresh_performance_ui;}
 static void rx3_modules_bind_writer(int (*f)(unsigned long,const void *,const void *,unsigned)){bound+=f==rx3_write_guarded;}
-static unsigned rx3_modules_start(void){modules_started++;return __builtin_popcount(selection&127);}
+static unsigned rx3_modules_start(void){modules_started++;return __builtin_popcount(selection&255);}
 static unsigned rx3_modules_failures(void){return module_fail;}
+static unsigned rx3_audio_count(void){return !!(selection&128);}
 static int rx3_modules_uses_audio(void){return !!(selection&2);}
 static unsigned rx3_image_contributions(void){return !!(selection&(1|8));}
 static int rx3_titles_enabled(void){return 0;}
@@ -154,6 +155,10 @@ int main(void) {
         assert(mask==32 ? !hook_calls : hook_calls>0);
     }
     run(0,0,0);assert(!ready && !hook_calls);
+    /* An audio-only observer installs just reader identity, never the UI. */
+    run(128,0,0);assert(ready && hook_calls==1 && !stops && !cleanup);
+    run(128,1,0);assert(!ready && hook_calls==1 && stops && cleanup);
+    run(128,0,1);assert(!ready && !hook_calls && stops);
     /* A rejected firmware hook stops every module and removes what was put in. */
     run(4|32,1,0);assert(!ready && stops && cleanup);
     run(1|16,3,0);assert(!ready && stops && cleanup);

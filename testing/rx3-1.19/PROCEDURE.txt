@@ -16,4 +16,4 @@ Physical sequence, performed by operator:
 
 Private captures/builds live under ignored local/. Commit only redacted summaries and small synthetic fixtures. No serial numbers, keys, manufacturer binaries or music in PRs.
 
-Deck changes are deferred until source identity/analysis lookup is understood and a specific position accessor is verified offline. Do not add a shell, memory scan endpoint, arbitrary file reads, flash writes or remote code loader.
+The next opt-in candidate is covered separately by POSITION-TEST.txt; the baseline procedure above remains unchanged. Position semantics still require hardware verification. Do not add a shell, memory scan endpoint, arbitrary file reads, flash writes or remote code loader.

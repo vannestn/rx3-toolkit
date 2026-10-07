@@ -1,0 +1,39 @@
+{
+  "id": "position-diagnostic",
+  "name": {
+    "en": "Playback position diagnostic",
+    "fr": "Diagnostic de position"
+  },
+  "description": {
+    "en": "Experimental raw position capture for controlled firmware 1.19 testing. Units and track association are unverified.",
+    "fr": "Capture exp\u00e9rimentale pour tests contr\u00f4l\u00e9s du firmware 1.19. Unit\u00e9s et association non v\u00e9rifi\u00e9es."
+  },
+  "firmwares": [
+    "1.19"
+  ],
+  "default": false,
+  "advanced": true,
+  "order": 102,
+  "category": "streaming",
+  "runtime_directory": "position-diagnostic",
+  "namespace": "position_diagnostic",
+  "requires": [
+    "core",
+    "now-playing"
+  ],
+  "conflicts": [
+    "stems",
+    "keyshift"
+  ],
+  "files": [
+    {
+      "source": "module.sh",
+      "target": "module.sh",
+      "executable": false
+    }
+  ],
+  "build_files": [
+    "rx3_position_diagnostic_module.c",
+    "rx3_position_snapshot.h"
+  ]
+}

@@ -32,3 +32,5 @@ On any glitch, unexpected restart, stale identity or failed guard: stop the test
 
 Current conclusion
 TimeStretch position is the best source-level candidate found. Exact playhead semantics, identity lifecycle and callback cost remain unverified. No new hook, build deployment, firmware change or running-deck probe was performed during this investigation.
+
+Implementation follow-up: the opt-in candidate and host receiver are now built and tested offline; see telemetry-bringup.txt and testing/rx3-1.19/POSITION-TEST.txt. All hardware-semantic caveats above remain. The implementation exports raw reader generations without claiming verified track association. No deployment has occurred.

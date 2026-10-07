@@ -1660,22 +1660,24 @@ __attribute__((constructor)) static void initialize(void)
        native hooks as clients arrive. */
     unsigned int started = rx3_modules_start();
     if (rx3_modules_failures()) { rx3_modules_stop(); return; }
-    if (!rx3_panel_count() && !rx3_image_contributions() && !rx3_browse_count() &&
-        !rx3_titles_enabled()) {
+    int performance_requested = rx3_panel_count() || rx3_image_contributions() ||
+        rx3_browse_count() || rx3_titles_enabled();
+    /* Audio-only observers also require deck identity. Keep their load hook
+       independent of all performance UI hooks. No clients: no added hook. */
+    if (performance_requested || rx3_audio_count()) {
+        original_load = (load_fn)install_hook(
+            &load_hook, PCM_LOAD, load_guard, (void *)hooked_load);
+        if (!original_load) {
+            log_line("rejected: unexpected PcmReader::load prologue");
+            goto reject_performance_hooks;
+        }
+    }
+    if (!performance_requested) {
         if (started) {
             publish_ready();
             log_line("RX3 performance hook active");
         }
         return;
-    }
-
-    /* PcmReader::load is the core deck-identity service: readers meet their
-       decks there, and track notifications go out from it. */
-    original_load = (load_fn)install_hook(
-        &load_hook, PCM_LOAD, load_guard, (void *)hooked_load);
-    if (!original_load) {
-        log_line("rejected: unexpected PcmReader::load prologue");
-        goto reject_performance_hooks;
     }
 
     original_set_beatfx_selected = (set_beatfx_selected_fn)install_hook(

@@ -1,0 +1,51 @@
+RX3 firmware 1.19 — first position test (operator-assisted)
+
+Purpose: establish raw position semantics before using it to select beats or
+phrases. Hardware result remains PENDING. Do not run during a performance.
+
+Before loading
+1. Stop deck playback; use the deck's normal USB stop/eject procedure. Connect
+   SOUND_PRO to the computer. Do not pull the stick during active USB access.
+2. Agent backs up the exact existing autoexec.bin, manifest and any runtime
+   files; verify hashes before changing anything. The local older minimal
+   build is preserved too, but is not byte-identical to the physically tested
+   UI build. No formatting or changes to music/rekordbox directories.
+3. Review candidate manifest: firmware 1.19; core, now-playing and
+   position-diagnostic only. Copy/verify the candidate only after backup.
+4. Safely eject from computer. With deck stopped/off, return USB and boot using
+   the established upstream procedure. Keep rear USB-B connected to computer.
+   Do not attempt a hot library unload or firmware downgrade.
+
+First capture
+Identify the current USB IPv4 source; do not assume it persisted across boots.
+Run from repo root (replace RX3_USB_IPV4 and choose a fresh filename):
+  python scripts/position_diagnostic.py --source RX3_USB_IPV4 --seconds 120 --output local/captures/position-01.jsonl
+
+This only listens on UDP 50123/50124. Filter is not authentication. All native
+values remain raw; no source-time or track association is silently invented.
+It records host elapsed time, sequence deltas, and age of repeated observations.
+
+Operator sequence (one deck first)
+- Load a known analyzed track after boot. Note title and center-pitch BPM.
+- Play at centered pitch for 15 seconds. Report the displayed elapsed time at
+  two marked moments (a short video of the elapsed display is helpful).
+- Pause for 5 seconds; resume. Make a cue jump, then a short loop and exit.
+- Change pitch; note the exact displayed BPM and direction of slider change.
+- Toggle Master Tempo once while listening for any interruption.
+- Load another known track. Note elapsed time and title. Leave Deck 2 idle.
+- Stop immediately if UI/audio behaves abnormally. Normal restart without the
+  mod stick is the tested stock recovery path; do not experiment with flashing.
+
+Evaluate before adding more scope
+Do raw deltas fit source-time frames at 44,100/s, adjusted for pitch, or another
+unit? Are positions render-ahead and by how much? Does pause continue callbacks?
+Do loop/cue events jump correctly? Does generation change at the right time,
+including reload of the same song? Does failed load/unload invalidate safely?
+Does empty Deck 2 remain distinguishable? The probe does not equate loaded,
+onAir, callback activity, volume or audibility.
+
+Only after review: repeat with two decks, browse/load activity, 48 kHz source,
+reverse/seek and repeated same-track loads. Confirm stock restart afterwards.
+Do not call this validated/live TouchDesigner timing until these tests support
+an explicit track association and timing conversion. All packet captures and
+builds remain in ignored local/. Commit only redacted results.
