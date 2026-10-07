@@ -75,3 +75,6 @@ See PACKAGE-SAFETY-AUDIT.txt. Found/fixed incomplete volatile-path checks, runti
 
 USB preparation — 2026-10-06 23:40 EDT:
 SOUND_PRO reconnected. Backed up and hash-verified exact working autoexec, manifest and RX3_RUNTIME files in ignored local/usb-backups/20261006-234001-before-position. Installed audited f008b7596de357993c62fa0f30925dd83b2edb7ffca76a2adb8e766d8b762ead package and matching manifest with flush/rename/read-back verification. Contents/PIONEER inventory (1909 files, sizes and modification times) unchanged. Only root autoexec.bin and rx3-mod-manifest.json replaced. Hardware execution/position validation still pending.
+
+First audited-candidate boot attempt:
+Operator reports restart, USB insertion, and playing a song. USB network en8 active with a link-local host address. Two receive-only checks totaling approximately 32 seconds observed zero UDP messages on both 50123 and 50124, listening without an assumed peer address. No commands sent to deck. This does not establish module execution or its failure cause; early guard refusal is one possibility. Saved presence summary under local/captures/position-first-boot-presence.jsonl. Next: inspect USB startup evidence before changing code or relaxing guards.
