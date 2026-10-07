@@ -204,3 +204,30 @@ inspection starting at the operator's latest message. It is a background
 process for this computer session only; no reboot autostart is installed.
 Existing fixed capture was imported into the rolling window, then removed.
 The local database and process log remain ignored by Git. See POSITION-TEST.txt.
+
+First controlled position validation — 2026-10-07:
+During the operator's marked run, Deck 1 track ID 150 showed repeated raw
+backward jumps of roughly 85,000 frames at about two-second intervals while
+the short loop was active. Its reported playModeRaw changed from 3 to 4 at
+the end, and raw position then held at 86,243 while observation callbacks
+continued. Deck 2 changed from unloaded to track ID 195; its reader generation
+changed from 0 to 1 and a new sample appeared. Several Deck 2 backward jumps
+occurred during the operator's cue activity, then the value advanced steadily.
+Between the marked 40- and 50-second points, Deck 2 advanced at about 45,188
+raw units/second. Its Now Playing packet reported 125.04 BPM; the rekordbox
+export for track ID 195 reports 122 BPM, giving 44,100 * 125.04/122 = about
+45,199 source frames/second. The difference is about 0.02%.
+
+The operator then read Deck 2 as "3 Letters (Stereocalypse Remix)", 125.0 BPM,
+with 3:34 remaining. The local rekordbox export lists duration 322 seconds.
+At the near-contemporaneous paused packet, raw position was 4,784,608:
+4,784,608/44,100 = 108.49 seconds, versus 322 - 214 = 108 seconds implied by
+the displayed remaining time. The subsecond discrepancy is consistent with
+the display's one-second precision and an untimestamped spoken reading. This
+is strong bench evidence that rawPosition is a source-audio frame index at
+44.1 kHz for this track, and that tempo changes alter its advance rate rather
+than its unit. It is not yet a general sample-rate guarantee for all tracks
+or proof of exact render-to-output latency. The UDP 50126 exit-status report
+still did not arrive; inspect the USB session log on a later safe return to
+the computer. The live native streams and user-reported playback do not prove
+the exit-status sender completed.
