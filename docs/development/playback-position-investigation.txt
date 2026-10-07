@@ -1,0 +1,34 @@
+RX3 playback-position investigation — firmware 1.19
+Status: offline source findings, not a validated position implementation.
+Base: cc17a1fde3016a44440948e50bde72f430da34d9.
+
+Goal
+Obtain deck-relative playback time so host-side rekordbox PQTZ/PSSI/waveforms can drive beat, phrase and energy fields. Preserve the working Now Playing build. Do not export audio or modify its samples for this diagnostic.
+
+Evidence
+1. mod/modules/core/api/rx3_audio_api.h exposes a deck stream callback with position, reader and frames. Its comment describes position as a 44.1 kHz reader frame. That is a source assertion, not our hardware measurement.
+2. services/rx3_audio.c hooks TimeStretch::getStreamAt at 0x000c292c with an eight-byte prologue guard, calls the original first and forwards its position argument. The source distinguishes this playback path from PcmReader::getStreamAt, also used for out-of-order analysis scans. Do not use generic reader activity as playback position.
+3. The callback resolves reader identity from deck_readers[]. Only rx3_audio_track_loaded() populates it. core/rx3_core_hook.c hooked_load() invokes that after the original PcmReader::load call (address 0x00038ff0); the load result is forwarded but not checked before publishing reader identity. Its success semantics need verification.
+4. initialize() returns early when there are no panels, image contributions, browse items or title feature. That return precedes installing PcmReader::load. Minimal Now Playing startup therefore does not establish this audio reader mapping. Merely adding a stream callback is insufficient.
+5. The stream stage permits one owner. A diagnostic must fail closed if another module owns it, never take over Stems or another processor. release() drains active callbacks without a timeout; hook removal/trampoline lifetime needs explicit review before introducing a new lifecycle.
+
+Smallest proposed implementation, not yet deployed
+A. Separate demand-driven deck identity tracking from performance UI hook installation. Do not enable unrelated UI/Stems features to force the existing path. Preserve all executable/instruction checks and handle partial initialization with matching teardown. Initial tracks loaded before observation remain unknown until a subsequent validated load; do not scan memory to guess identity.
+B. Add an explicitly selected position diagnostic, disabled by default. Observe scalar position only. Never read/copy/write the audio buffer or send network/file output from an audio callback.
+C. Use fixed-size per-deck snapshots with a reviewed nonblocking publication scheme. Include deck, load generation, raw position, callback frame count, validity and an observation sequence. Do not expose pointers. A worker handles serialization and a capped export rate (initially 20 Hz). Retain existing Now Playing messages independently.
+D. Host records raw position without assuming seconds. Associate a snapshot with a verified track/load generation; clear it on loading, unload, source change, stale feed or mismatch. Avoid fusing asynchronously received track ID and position without generation evidence. Distinguish render-ahead position from audible position and measure latency.
+E. Only after verification convert frames/44100 to seconds. Beat and phrase lookup use actual PQTZ timestamps, not a constant-BPM extrapolation. Unknown/stale position produces unavailable fields, never invented progression.
+
+Offline gates before any USB build
+- Review original executable ABI/disassembly if a lawfully available local matching binary exists; it was not located in the inspected research directories. Prologue matching alone does not validate field offsets or units.
+- Test no-client startup, identity requested without UI, failed load/hook guards, partial initialization, occupied stream stage and teardown ordering using host stubs where possible.
+- Test snapshot consistency, generation changes, stale handling, malformed packets and bounded sizes. Review whether chosen atomics compile to lock-free instructions on target ARM; no implicit locking/library allocation on audio path.
+- Inspect generated artifact to confirm no audio writes, extra services, firmware writes or unexpected modules. Preserve known working artifact and hashes.
+
+Hardware validation after those gates
+Start with one loaded deck and a short capture. Compare raw position to visible elapsed time at multiple points at centered pitch, then positive/negative pitch and master tempo on/off. Determine units and any render-ahead offset rather than assuming them.
+Test pause/resume, cue jump, loop wrap, seek, reverse if supported, track reload and unload. Confirm jumps/wraps are preserved and buffering is not mistaken for continuous audible playback. Repeat with two decks and browsing; listen for glitches and check identity separation.
+On any glitch, unexpected restart, stale identity or failed guard: stop the test, return to known working build/stock boot and inspect the capture. No hot unload experiments on the audio thread. User-controlled clean restart with mod USB absent is the recovery check; it is not proof of firmware downgrade or hard-brick recovery.
+
+Current conclusion
+TimeStretch position is the best source-level candidate found. Exact playhead semantics, identity lifecycle and callback cost remain unverified. No new hook, build deployment, firmware change or running-deck probe was performed during this investigation.
