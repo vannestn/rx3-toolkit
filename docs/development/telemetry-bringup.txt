@@ -36,3 +36,9 @@ Build result:
 - Output is ignored local/build-now-playing/. Not copied to USB by this verification.
 - Desktop launcher now points at this repository with explicit compiler/linker environment. Existing running UI must be closed and reopened to inherit it.
 - No runtime source patch required so far; no hardware success claimed.
+
+First physical RX3 telemetry observation — 2026-10-06:
+User reports playback from the rebuilt USB. Host listener received four consecutive Now Playing v1 UDP messages (sequence 2726–2729).
+Deck 1: loaded=true, trackId=150, bpmX100=12809, tempoRaw=410, playModeRaw=2, onAir=true, title empty.
+Deck 2: loaded=false, trackId=0, bpmX100=0, tempoRaw=240, playModeRaw=0, onAir=true, title empty.
+Confirms physical telemetry delivery; does not validate raw tempo units, transport enum mapping, title extraction, audibility or clean stock restart. Empty deck reporting onAir=true reinforces that onAir cannot be interpreted as playing/audible. Four packets alone do not establish reliable update rate or sustained stability.
