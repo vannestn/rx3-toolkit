@@ -29,6 +29,12 @@ class RollingListenerTests(unittest.TestCase):
             self.assertEqual([r[0] for r in rolling.recent(db, 0, now)],
                              [edge, now-15_000_000_000, now-10_000_000_000])
             self.assertEqual([r[0] for r in rolling.recent(db, now-5_000_000_000, now)], [])
+            self.assertEqual([r[0] for r in rolling.recent(db, 0, now, event='now-playing',
+                                                           contains='"sequence": 2')], [edge])
+            self.assertEqual([r[0] for r in rolling.recent(db, 0, now,
+                                                           contains='sequence', limit=1)],
+                             [now-10_000_000_000])
+            self.assertEqual(rolling.recent(db, 0, now, contains='missing'), [])
             self.assertEqual(db.execute('SELECT COUNT(*) FROM events').fetchone()[0], 3)
             db.close()
             with sqlite3.connect(path) as reader:

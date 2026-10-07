@@ -48,11 +48,22 @@ def record(db, now_ns, event, source, payload):
                (now_ns, event, source, json.dumps(payload, ensure_ascii=False)))
 
 
-def recent(db, since_ns, now_ns):
+def recent(db, since_ns, now_ns, event=None, contains=None, limit=20):
+    """Return only the newest matching rows, in chronological order."""
     lower = max(since_ns, now_ns-WINDOW_NS)
-    return list(db.execute('SELECT wall_ns,event,source,payload FROM events '
-                           'WHERE wall_ns >= ? AND wall_ns <= ? ORDER BY wall_ns,id',
-                           (lower, now_ns)))
+    where = ['wall_ns >= ?', 'wall_ns <= ?']
+    values = [lower, now_ns]
+    if event:
+        where.append('event = ?')
+        values.append(event)
+    if contains:
+        where.append('instr(payload, ?) > 0')
+        values.append(contains)
+    values.append(limit)
+    rows = db.execute('SELECT wall_ns,event,source,payload FROM events WHERE '
+                      + ' AND '.join(where) + ' ORDER BY wall_ns DESC,id DESC LIMIT ?',
+                      values).fetchall()
+    return rows[::-1]
 
 
 def listen(path, source=None, ports=PORTS):
@@ -140,9 +151,18 @@ def main():
                         help='Read records from the last N seconds, without listening')
     parser.add_argument('--since-epoch', type=float,
                         help='Read records since this Unix timestamp, without listening')
+    parser.add_argument('--event', choices=sorted(set(PORTS.values()) | {'stale'}),
+                        help='With a read interval, return only this event type')
+    parser.add_argument('--contains', help='With a read interval, match this literal text in payload')
+    parser.add_argument('--limit', type=int, default=20,
+                        help='With a read interval, show at most this many newest matches (default 20)')
     args = parser.parse_args()
     if args.source:
         ipaddress.IPv4Address(args.source)
+    if not 1 <= args.limit <= 200:
+        parser.error('limit must be from 1 to 200')
+    if (args.event or args.contains) and args.show_last_seconds is None and args.since_epoch is None:
+        parser.error('filters require a read interval')
     if args.show_last_seconds is not None or args.since_epoch is not None:
         if args.show_last_seconds is not None and args.since_epoch is not None:
             parser.error('choose one read interval')
@@ -156,7 +176,9 @@ def main():
         since_ns = (int(args.since_epoch*1e9) if args.since_epoch is not None
                     else now_ns-int(args.show_last_seconds*1e9))
         with sqlite3.connect(args.database) as db:
-            for wall_ns, event, source, payload in recent(db, since_ns, now_ns):
+            for wall_ns, event, source, payload in recent(
+                    db, since_ns, now_ns, event=args.event,
+                    contains=args.contains, limit=args.limit):
                 print(json.dumps({'wallTime': wall_ns/1e9, 'event': event,
                                   'source': source, **json.loads(payload)},
                                  ensure_ascii=False))
