@@ -13,7 +13,9 @@ volatile_mount_layout()
             if (!ram($3)) bad=1
         }
         index($2,"/root/pdj/")==1 || index($2,"/tmp/")==1 { bad=1 }
-        END { exit (bad || roots!=1) }
+        # Linux may retain rootfs beneath the active tmpfs root. Every
+        # root entry must be RAM-backed; require at least one.
+        END { exit (bad || roots<1) }
     ' "$1"
 }
 volatile_path_layout()

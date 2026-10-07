@@ -81,3 +81,30 @@ Operator reports restart, USB insertion, and playing a song. USB network en8 act
 
 Startup refusal investigation:
 Operator observed no brief black screen on candidate insertion, unlike the working package. Reconnected USB hash matches audited candidate; startup-probe content and modification timestamp match the saved working marker (not definitive proof of nonexecution). Prepared observation-only autoexec using the same existing key/codec; decrypted script matches source. It reads mount/path information and writes only RX3_PREFLIGHT.txt to the validated mounted FAT USB; no player commands, code hooks, device writes or guard relaxation. Host shell syntax and destination acceptance/refusal fixtures passed. Installed hash 89dd68b0519e77c484c4b564a252312699ce8cb8aa37713cfbac7cab670d4b5a after backing up previous image at local/usb-backups/20261006-234847-before-preflight. No music/rekordbox writes. Hardware report pending.
+
+Observation-only hardware report and startup correction — 2026-10-06:
+RX3_PREFLIGHT.txt confirms the encrypted image executed on the physical deck.
+The mount table reports both rootfs and tmpfs entries at /, plus RAM-backed
+/tmp. /root/pdj/rbp is a regular file with nonsymlink ancestors. Persistent
+settings/gui mounts are siblings outside the runtime write targets.
+The earlier guard required exactly one root entry and therefore rejects this
+observed layout. This explains an early refusal path in the audited package;
+the corrected runtime still needs a physical boot/capture to establish success.
+Changed guard to require at least one root entry and reject any non-RAM root.
+Persistent ancestors/nested runtime targets and symlink checks remain enforced.
+12 targeted safety/position tests passed, including stacked roots with flash
+overlays rejected. Rebuilt package b3d58ab39d2140614bd0aae975d8c12aabfeb95ac07abc5bccb84d7ae2ddc368;
+876544 bytes; exact 14-file source/library audit passed. Compared with the prior
+audited image, only /lib/volatile-guard.sh differs. No native hook changes.
+Original UI backup startup matches initial upstream source; encryption codec
+is unchanged from that source. UI and CLI call the same build_runtime entry.
+All original/audited/corrected/preflight images decrypt as UsbAuto. Successful
+physical preflight confirms image acceptance; no omitted signing/build step
+was found. Lack of a black flash is expected for the observation-only script.
+Receive-only 30-second check during preflight playback saw zero packets on
+50123/50124; the probe does not request telemetry.
+Prepared corrected image on SOUND_PRO after preserving probe/report/runtime
+backup, flush/rename/readback checks and unchanged music/export metadata
+inventory. Original working UI package remains preserved separately.
+Next: operator stock restart and corrected USB insertion, then passive dual-port
+capture. Position units/track identity remain unverified.

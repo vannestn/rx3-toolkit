@@ -26,6 +26,18 @@ class PositionSafetyTests(unittest.TestCase):
         # Unrelated USB mounts are not modified by this guard.
         self.assertEqual(self.mount_check(good+'/dev/sda /media/usb1/A vfat rw 0 0\n'),0)
 
+    def test_observed_rx3_stacked_ram_roots_and_persistent_overlays(self):
+        observed = ('rootfs / rootfs rw 0 0\n'
+                    '/dev/shm / tmpfs rw,relatime,size=61440k 0 0\n'
+                    'rwfs /tmp tmpfs rw 0 0\n'
+                    'ubi6:settings /root/settings ubifs rw 0 0\n'
+                    'ubi10:gui /root/gui ubifs rw 0 0\n')
+        self.assertEqual(self.mount_check(observed), 0)
+        for mount in ('/dev/flash / ext4 rw 0 0\n',
+                      '/dev/flash /root/pdj ext4 rw 0 0\n',
+                      '/dev/flash /tmp/hidden ext4 rw 0 0\n'):
+            self.assertNotEqual(self.mount_check(observed + mount), 0)
+
     def test_symlink_and_device_destinations_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             root=pathlib.Path(directory);(root/'root/pdj').mkdir(parents=True);(root/'tmp').mkdir()
