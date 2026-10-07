@@ -1,5 +1,31 @@
 # RX3 pre-gig export and live contract bridge
 
+## Direct USB metadata path to build next
+
+The RX3 runtime receives the mounted music USB path as `$USB` from
+`autoexec.sh`. The drive remains mounted while its tracks are in use, so the
+runtime can read `PIONEER/rekordbox/export.pdb` and the corresponding
+`PIONEER/USBANLZ` files directly. Loading the mod into RAM does not itself
+copy those files into RAM or remove access to the stick. The current host-side
+catalog join is an interim implementation, **not** a requirement that the DJ
+pre-scan every USB to obtain track names or phrases.
+
+The next deck-side increment should read metadata only from the actual mounted
+music USB, identify the loaded deck's media slot and export generation, and
+associate its track ID with the matching PDB row and analysis path. Do bounded
+file reads and parsing on the mod's worker thread, never in a player callback;
+cache the selected track's title, artist, beat grid and PSSI phrases in volatile
+memory. Publish a compact identity/analysis asset once on load or media change,
+then live beat, position and phrase state on USB-B. If a read, slot association,
+or parse fails, report unknown rather than using a same-numbered ID from the
+wrong drive. Do not write to rekordbox files or keep a file descriptor open
+across drive removal. Validate this path on hardware before treating the host
+pre-gig scan as optional for a show.
+
+The present PR has **not implemented or tested** direct deck-side PDB/ANLZ
+reading. Until it does, its live names and phrases depend on the selected
+host cache and single prepared music USB described below.
+
 The pre-gig scanner and bridge live in this toolkit. They require no VJ checkout
 and do not retrieve music over USB-B. The DJ's rekordbox USB is mounted on the
 computer before the set; the scanner reads its `export.pdb` and matching
