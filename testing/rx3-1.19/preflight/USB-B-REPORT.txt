@@ -6,7 +6,9 @@ It does not provide remote installation. Subsequent builds still travel on USB.
 
 Status: host round-trip and refusal tests passed; static ARM ELF built and
 packaged with exact encrypted-image readback and executable-mode verification.
-Physical ARM execution and USB-B report delivery remain pending.
+Physical acceptance 2026-10-07: complete 1428-byte report received in two
+packets, zero rejects; exact match to the previous USB-file report. This
+validates this candidate's helper/transport, not native position hooks.
 
 Build from repository root with the established Clang/LLD PATH:
   python scripts/build_startup_report.py --key KEY_PATH --output local/FRESH_DIRECTORY
@@ -50,6 +52,11 @@ handling, ISO volume/padding and sector framing are unchanged. This is needed
 to execute report-send directly from the read-only ISO without copying a binary
 to any deck filesystem. The packaged ELF and script both have mode 0755.
 
-Next after physical acceptance: use this independent sender for named startup
-stage/refusal reports in the normal diagnostic package, before native hooks.
-Do not assume the current normal position build includes this probe.
+Normal integration now prepared locally: position-diagnostic builds include
+/lib/report-send and startup-report.sh. autoexec launches the independent
+reporter before its native startup guards. It sends a pre-hook observation and
+its own read-only mount/path guard results; these do not certify subsequent
+main startup or hooks. Static helper is byte-identical to the accepted probe.
+The integrated candidate has not yet run on hardware. Later stage/refusal
+reporting may be added if the initial position attempt exposes another failure.
+Current standalone USB probe still contains no native position/Now Playing.

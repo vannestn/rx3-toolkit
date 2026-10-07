@@ -17,7 +17,7 @@ def digest(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def audit(package, key, hook):
+def audit(package, key, hook, report_sender):
     manifest=json.loads((package.parent/'rx3-mod-manifest.json').read_text())
     contents=package.read_bytes()
     if manifest['sha256']!=digest(contents) or manifest['bytes']!=len(contents):
@@ -28,7 +28,7 @@ def audit(package, key, hook):
     if autoexec_iso_metadata(plain)!='UsbAuto': raise ValueError('Unexpected volume')
     expected={'/autoexec.sh':ROOT/'mod/autoexec.sh',
               '/modules/compatibility/module.sh':ROOT/'mod/compatibility.sh'}
-    for name in ('module-api.sh','safe-mode.sh','volatile-guard.sh'):
+    for name in ('module-api.sh','safe-mode.sh','volatile-guard.sh','startup-report.sh'):
         expected['/lib/'+name]=ROOT/'mod/lib'/name
     for name in manifest['modules']:
         folder=ROOT/'mod/modules'/name
@@ -36,6 +36,7 @@ def audit(package, key, hook):
         for row in specification['files']:
             expected['/modules/'+name+'/'+row['target']]=folder/row['source']
     expected['/modules/core/librx3_core.so']=hook
+    expected['/lib/report-send']=report_sender
     index=b'compatibility\ncore\nnow-playing\nposition-diagnostic\n'
     iso=pycdlib.PyCdlib();iso.open_fp(io.BytesIO(plain));seen={}
     try:
@@ -48,6 +49,8 @@ def audit(package, key, hook):
                 elif path in expected: reference=expected[path].read_bytes()
                 else: raise ValueError('Unexpected image file: '+path)
                 if data!=reference: raise ValueError('Source/build mismatch: '+path)
+                if path=='/lib/report-send' and iso.get_record(rr_path=path).rock_ridge.get_file_mode()&0o777!=0o755:
+                    raise ValueError('Report sender is not executable')
                 seen[path]={'bytes':len(data),'sha256':digest(data)}
     finally: iso.close()
     if set(seen)!=set(expected)|{'/modules/index'}: raise ValueError('Missing image file')
@@ -64,8 +67,9 @@ def main():
     p.add_argument('--key',required=True,type=Path)
     p.add_argument('--hook',type=Path,default=ROOT/'build/librx3_core.so')
     p.add_argument('--output',required=True,type=Path)
+    p.add_argument('--report-sender',type=Path,default=ROOT/'build/report-send')
     a=p.parse_args()
-    result=audit(a.package,a.key,a.hook)
+    result=audit(a.package,a.key,a.hook,a.report_sender)
     with a.output.open('x') as output: json.dump(result,output,indent=2);output.write('\n')
     print('PASS:',len(result['files']),'files match; no unexpected ARM imports')
 

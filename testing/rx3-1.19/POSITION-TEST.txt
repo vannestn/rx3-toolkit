@@ -4,7 +4,7 @@ Purpose: establish raw position semantics before using it to select beats or
 phrases. Hardware result remains PENDING. Do not run during a performance.
 
 Before loading
-Use local/build-position-layout-fixed (see telemetry-bringup.txt), not the
+Use local/build-position-usb-report (see telemetry-bringup.txt), not the
 superseded first diagnostic build. No recording or firmware update in progress.
 1. Stop deck playback; use the deck's normal USB stop/eject procedure. Connect
    SOUND_PRO to the computer. Do not pull the stick during active USB access.
@@ -19,6 +19,9 @@ superseded first diagnostic build. No recording or firmware update in progress.
    Do not attempt a hot library unload or firmware downgrade.
 
 First capture
+Start scripts/startup_report.py before insertion on UDP 50125 to receive the
+independent finite pre-hook report (including its mount/path guard checks).
+Then capture 50123/50124 below; report arrival alone is not native-hook success.
 Identify the current USB IPv4 source; do not assume it persisted across boots.
 Run from repo root (replace RX3_USB_IPV4 and choose a fresh filename):
   python scripts/position_diagnostic.py --source RX3_USB_IPV4 --seconds 120 --output local/captures/position-01.jsonl

@@ -135,3 +135,32 @@ environment, plus 15 optional skips. Reran all three affected test modules with
 the correct environment: 22 tests passed; no remaining reported failures.
 Physical USB-B report delivery remains pending. Next requirements documented in
 RX3-NEXT-STEPS.txt; track association/position acceptance precede TD timing.
+
+Physical USB-B report acceptance — 2026-10-07:
+Operator inserted report probe and reports playback. Listener received complete
+1428-byte report in two UDP 50125 packets from the USB link peer, zero rejects.
+Bytes exactly match the earlier USB-file preflight report. Confirms physical
+static ARM helper execution, ISO executable mode and report transport for this
+candidate. No player restart was requested by the probe. This does not validate
+position/native hooks or establish a maximum USB transfer rate. Continue next
+position candidate preparation while stick remains in deck; future installs
+still require operator USB stop/eject and host connection.
+
+Next normal position build prepared during physical report session:
+Integrated finite reporting before the normal native startup guards, selected
+only when position-diagnostic is built. Shared sender source/compiler reused
+by standalone probe and runtime builder. No report listener or native changes.
+Candidate local/build-position-usb-report, 880640 bytes, SHA-256
+18c96ae18f90394fabb14c05d41a93e63a602fa0bfa79f824a5a39483c4a3153.
+Source/decrypted 16-file audit passed. Native library byte-identical to previous
+corrected position candidate; helper byte-identical to physically tested probe.
+Only existing image-file change is the startup script launching independent
+reporting; adds report-send and startup-report.sh. The reporter includes its
+read-only mount/path guard status; a successful report does not establish main
+startup completion or hook success. It observes concurrently with startup.
+22 targeted tests and seven builder regression tests passed. A host fixture
+executed the actual startup prefix with a persistent-root refusal: main exits
+before patching while the separate report still reaches the receiver.
+Built locally, not installed. Operator must return stopped/ejected SOUND_PRO to
+host for backup/install, then normal boot and simultaneous report/position
+capture. No position or live TD success claimed by report acceptance.

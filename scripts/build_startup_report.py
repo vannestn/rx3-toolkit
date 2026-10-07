@@ -7,12 +7,12 @@ import json
 import os
 from pathlib import Path
 import shutil
-import subprocess
 import sys
 import tempfile
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
 from app.firmware.firmware_image import write_autoexec,read_autoexec,autoexec_iso_metadata
+from app.runtime.build import compile_report_sender
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
@@ -29,11 +29,7 @@ def main():
         staging=Path(directory)
         shutil.copy2(ROOT/'testing/rx3-1.19/preflight/autoexec.sh',staging/'autoexec.sh')
         binary=staging/'report-send'
-        subprocess.run([a.compiler,'--target=arm-linux-gnueabi','-march=armv7-a','-marm',
-                        '-mfloat-abi=soft','-fno-stack-protector','-fno-builtin','-ffreestanding',
-                        '-O2','-Wall','-Wextra','-Werror','-fuse-ld=lld','-nostdlib','-static',
-                        '-Wl,--build-id=none','-Wl,-e,_start',
-                        str(ROOT/'testing/rx3-1.19/preflight/report_sender.c'),'-o',str(binary)],check=True)
+        compile_report_sender(ROOT/'mod/lib/report_sender.c',binary,a.compiler)
         binary.chmod(0o755)
         expected={name:(staging/name).read_bytes() for name in ('autoexec.sh','report-send')}
         write_autoexec(staging,image,a.key)

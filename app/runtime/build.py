@@ -535,6 +535,21 @@ def validate_arm_hook(path: pathlib.Path) -> None:
         raise ValueError(f"{path}: hook must target ARM EABI5")
 
 
+def compile_report_sender(source: pathlib.Path, output: pathlib.Path,
+                          compiler: str | None = None) -> None:
+    """Compile the independent, outbound-only static report process."""
+    compiler = compiler or os.environ.get("CC") or shutil.which("clang")
+    if not compiler:
+        raise ValueError("Clang and LLD are required for the report sender")
+    subprocess.run([
+        compiler, "--target=arm-linux-gnueabi", "-march=armv7-a", "-marm",
+        "-mfloat-abi=soft", "-fno-stack-protector", "-fno-builtin", "-ffreestanding",
+        "-O2", "-Wall", "-Wextra", "-Werror", "-fuse-ld=lld", "-nostdlib", "-static",
+        "-Wl,--build-id=none", "-Wl,-e,_start", str(source), "-o", str(output),
+    ], check=True, capture_output=True, text=True)
+    output.chmod(0o755)
+
+
 def compile_arm_hook(source: pathlib.Path, output: pathlib.Path, compiler: str | None = None,
                      sources: tuple[pathlib.Path, ...] = ()) -> None:
     compiler = compiler or os.environ.get("CC") or shutil.which("clang")
@@ -702,6 +717,11 @@ def build_runtime(
         shutil.copy2(root / "mod/lib/module-api.sh", library / "module-api.sh")
         shutil.copy2(root / "mod/lib/safe-mode.sh", library / "safe-mode.sh")
         shutil.copy2(root / "mod/lib/volatile-guard.sh", library / "volatile-guard.sh")
+        # Position diagnostics get reports even if a later native guard refuses.
+        # This helper is an independent finite process, never a player preload.
+        if any(patch.patch_id == "position-diagnostic" for patch in selected):
+            shutil.copy2(root / "mod/lib/startup-report.sh", library / "startup-report.sh")
+            compile_report_sender(root / "mod/lib/report_sender.c", library / "report-send")
         compatibility_target = modules / "compatibility/module.sh"
         compatibility_target.parent.mkdir(parents=True)
         shutil.copy2(compatibility, compatibility_target)

@@ -3,6 +3,10 @@
 # RX3 volatile runtime orchestrator. Feature logic lives in module directories.
 
 USB="$1"
+# Finite read-only report transport works independently of native hook startup.
+if [ -x /mnt/iso/lib/report-send ] && [ -r /mnt/iso/lib/startup-report.sh ]; then
+    sh /mnt/iso/lib/startup-report.sh | /mnt/iso/lib/report-send >/dev/null 2>&1 &
+fi
 # A RAM root alone is insufficient: /root or a nested target may be mounted
 # persistently. Check before temporary files, module sourcing or any writes.
 [ -r /mnt/iso/lib/volatile-guard.sh ] || exit 1
