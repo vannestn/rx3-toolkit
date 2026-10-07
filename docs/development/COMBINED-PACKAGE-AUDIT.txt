@@ -1,0 +1,79 @@
+RX3 1.19 combined diagnostic package audit — 2026-10-07
+
+Candidate: local/build-combined-diagnostic-final/autoexec.bin (ignored),
+SHA-256 554a9ede1e73eaec8b3962fd2aa1c4e2a8aea2dddc16d1e12d205277990ae281,
+886784 bytes. Build ID 6e70afd68cce42b19d8a4d86f708c84a. Selected modules:
+core, now-playing, position-diagnostic. The image is installed with durable readback; hardware execution and position
+semantics remain pending at the time of this source/package audit.
+
+Evidence inherited from completed physical checks
+- Firmware 1.19 RX3 ran the original toolkit Core + Now Playing module and
+  emitted sustained USB-B UDP 50123. User reported a normal stock restart
+  without the mod stick. This is session recovery evidence, not a firmware
+  downgrade or hard-brick repair test.
+- The observation-only probe executed and sent the exact 1428-byte USB report
+  over USB-B. The current startup sender is byte-identical to that physical
+  probe. The new status sender's 1900-byte static ELF differs in only two
+  bytes, selecting UDP 50126 instead of 50125. It has no dynamic loader or
+  undefined imports and uses the same finite, send-only syscall path.
+- The RX3 mount report showed two RAM-backed root entries. The corrected
+  volatile guard accepts this observed layout while rejecting persistent
+  ancestors/targets. This corrected normal position runtime has not yet run
+  physically; do not treat the earlier refusal as a position-hook test.
+
+New code and potential damage paths
+- The only changed existing packaged files relative to the prepared position
+  build are autoexec.sh (startup stages and exit-status trap) and the startup
+  sender's two port-constant bytes. New files are the status sender and a
+  32-hex build ID. The native Core/Now Playing/position library is byte-for-
+  byte identical to the prepared candidate. The 18-file encrypted image was
+  decrypted and matched against source and independent compiled ARM objects.
+- New shell code reads a build ID and fixed readiness/process observations,
+  remembers the first and last diagnostic message, and launches a finite
+  outbound sender at exit. No added code writes firmware, bootloader, flash,
+  settings, media database or an executable file on the deck. It does not
+  listen for commands. Existing root-stage/lock cleanup still occurs first.
+  Reports have an 8 KiB cap; the helper exits after at most twelve rounds.
+  At most the startup and exit reporters can overlap during normal insertion.
+- Existing core still modifies a guarded word in the RAM-backed rbp image,
+  stages an ELF in RAM, restarts rbp, and installs guarded in-process hooks.
+  It can disrupt playback if its assumed addresses, callback signature or
+  player lifecycle are wrong. The unchanged native library has not been
+  physically validated for position on this deck. This is the main remaining
+  risk, and no source-only review can certify it away.
+- The status trap runs on success/refusal and does read-only checks. A report
+  may be absent if the device aborts the shell, the ISO disappears, or the USB
+  network fails. A stage=complete report indicates shell completion; it does
+  not prove healthy audio, correct position units, or durable recovery. Host
+  packet counts and the operator's actual playback remain separate evidence.
+- The existing rollback and stock boot path have limits documented in
+  PACKAGE-SAFETY-AUDIT.txt. No firmware reflash, hot unload, remote installer
+  or additional in-process hooks are introduced by this combined build.
+
+Validation and scope limits
+- 31 focused tests passed: sender size/refusal/round-trip and guard exit report,
+  combined four-port host capture, image mode/codec, position and builder.
+  Another 50 runtime startup/staging/lock/media/recovery regression tests
+  passed. Final 13 focused report/safety tests passed after report-wording
+  changes. Shell syntax passed. No new failure reported in these checks.
+- Synthetic tests and package comparison do not test timing/audio behavior on
+  real firmware. Hardware trial must begin with one deck, a known analyzed
+  track, the unified receiver already listening, and a stock restart baseline.
+  Stop immediately on UI/audio anomalies and return to normal stock boot
+  without the stick; do not experiment with firmware flashing.
+- The report channel is diagnostic and unauthenticated. The host receiver uses
+  an exact source filter when supplied and otherwise permits link-local peers.
+  It never treats report text as executable instructions.
+
+Result: no newly introduced direct persistence or flash-write route found.
+The candidate is prepared for the controlled physical position test, with
+native ABI and player behavior still unverified.
+
+Installation record
+The prior observation-only image and manifest were backed up under ignored
+local/usb-backups/20261007-002024-before-combined-diagnostic. Installed image
+and manifest were flushed, renamed and hash-checked from SOUND_PRO. The 1909
+music/export file size and mtime records were unchanged. macOS then safely
+ejected disk6. The host four-port capture was started before reinsertion at
+local/captures/combined-20261007-01.jsonl. This does not establish actual
+native module startup; operator playback and incoming packets are the gate.

@@ -31,6 +31,9 @@ static void wait_second(void) { sleep(1); }
 #ifndef ROUNDS
 #define ROUNDS 12u
 #endif
+#ifndef REPORT_PORT
+#define REPORT_PORT 50125u
+#endif
 static unsigned char report[LIMIT+1u];
 static unsigned char packet[12u+CHUNK];
 static void put16(unsigned char *p,unsigned int n) { p[0]=(unsigned char)(n>>8);p[1]=(unsigned char)n; }
@@ -47,8 +50,9 @@ int report_main(void) {
     int fd=(int)SOCKET(),on=1;
     if(fd<0) return 3;
     if(OPTION(fd,&on)<0) { CLOSE(fd);return 4; }
-    /* sockaddr_in little-endian ARM: fixed USB link-local broadcast:50125. */
-    unsigned char to[16]={2,0,0xc3,0xcd,169,254,255,255,0,0,0,0,0,0,0,0};
+    /* sockaddr_in little-endian ARM: fixed USB link-local broadcast. */
+    unsigned char to[16]={2,0,(unsigned char)(REPORT_PORT>>8),
+                          (unsigned char)REPORT_PORT,169,254,255,255,0,0,0,0,0,0,0,0};
 #ifdef LOCAL_TEST
     to[4]=127;to[5]=0;to[6]=0;to[7]=1;
 #ifdef __APPLE__

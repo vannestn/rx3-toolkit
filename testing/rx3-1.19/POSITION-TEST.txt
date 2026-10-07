@@ -4,7 +4,7 @@ Purpose: establish raw position semantics before using it to select beats or
 phrases. Hardware result remains PENDING. Do not run during a performance.
 
 Before loading
-Use local/build-position-usb-report (see telemetry-bringup.txt), not the
+Use local/build-combined-diagnostic-final (see COMBINED-PACKAGE-AUDIT.txt), not the
 superseded first diagnostic build. No recording or firmware update in progress.
 1. Stop deck playback; use the deck's normal USB stop/eject procedure. Connect
    SOUND_PRO to the computer. Do not pull the stick during active USB access.
@@ -19,16 +19,14 @@ superseded first diagnostic build. No recording or firmware update in progress.
    Do not attempt a hot library unload or firmware downgrade.
 
 First capture
-Start scripts/startup_report.py before insertion on UDP 50125 to receive the
-independent finite pre-hook report (including its mount/path guard checks).
-Then capture 50123/50124 below; report arrival alone is not native-hook success.
-Identify the current USB IPv4 source; do not assume it persisted across boots.
-Run from repo root (replace RX3_USB_IPV4 and choose a fresh filename):
-  python scripts/position_diagnostic.py --source RX3_USB_IPV4 --seconds 120 --output local/captures/position-01.jsonl
-
-This only listens on UDP 50123/50124. Filter is not authentication. All native
-values remain raw; no source-time or track association is silently invented.
-It records host elapsed time, sequence deltas, and age of repeated observations.
+Start the unified receive-only capture before inserting the stick. It receives
+UDP 50125 startup, 50126 exit status, 50123 Now Playing and 50124 raw position.
+Use a fresh filename. The previously observed USB peer was 169.254.159.144,
+but verify it from the first report; an optional --source filters exact IPv4.
+  python scripts/diagnostic_session.py --seconds 240 --output local/captures/combined-01.jsonl
+The capture records raw values and a stale-stream event after three seconds.
+Build ID in exit status must match the installed manifest. A successful shell
+status is not physical validation of position or uninterrupted playback.
 
 Operator sequence (one deck first)
 - Load a known analyzed track after boot. Note title and center-pitch BPM.

@@ -3,6 +3,49 @@
 # RX3 volatile runtime orchestrator. Feature logic lives in module directories.
 
 USB="$1"
+# Reports run in a separate finite process. An exit report still works if the
+# later native compatibility check refuses before any player changes.
+RX3_STAGE=preflight
+RX3_LAST_ERROR=""
+RX3_FIRST_ERROR=""
+rx3_report_exit()
+{
+    _rx3_exit_code=$1
+    [ -x /mnt/iso/lib/report-send-status ] || return 0
+    {
+        printf 'RX3 position-runtime status v1\n'
+        printf 'buildId='; cat /mnt/iso/lib/build-id 2>/dev/null
+        printf 'stage=%s\nexitCode=%s\n' "$RX3_STAGE" "$_rx3_exit_code"
+        printf 'safeModeResult=%s\n' "${SAFE_MODE_RESULT:-unknown}"
+        printf 'firstError=%.192s\n' "$RX3_FIRST_ERROR"
+        printf 'lastError=%.192s\n' "$RX3_LAST_ERROR"
+        printf 'modules=%.96s\n' "${LOADED_MODULES:-unknown}"
+        if [ -n "${ACCEPTED:-}" ]; then
+            printf 'acceptedPlayer=yes\n'
+        elif [ "${ACCEPTED+x}" ]; then
+            printf 'acceptedPlayer=no\n'
+        else
+            printf 'acceptedPlayer=unknown\n'
+        fi
+        if [ -n "${NEW:-}" ] && rbp_alive "$NEW"; then
+            printf 'playerAlive=yes\n'
+        elif [ -n "${NEW:-}" ]; then
+            printf 'playerAlive=no\n'
+        else
+            printf 'playerAlive=unknown\n'
+        fi
+        if [ -n "${CORE_READY:-}" ] && [ -n "${NEW:-}" ]; then
+            if ready_file_matches_pid "$CORE_READY" "$NEW"; then
+                printf 'coreReady=yes\n'
+            else
+                printf 'coreReady=no\n'
+            fi
+        else
+            printf 'coreReady=unknown\n'
+        fi
+    } | /mnt/iso/lib/report-send-status >/dev/null 2>&1 &
+}
+trap 'rx3_report_exit "$?"' 0
 # Finite read-only report transport works independently of native hook startup.
 if [ -x /mnt/iso/lib/report-send ] && [ -r /mnt/iso/lib/startup-report.sh ]; then
     sh /mnt/iso/lib/startup-report.sh | /mnt/iso/lib/report-send >/dev/null 2>&1 &
@@ -12,12 +55,14 @@ fi
 [ -r /mnt/iso/lib/volatile-guard.sh ] || exit 1
 . /mnt/iso/lib/volatile-guard.sh || exit 1
 volatile_mount_layout /proc/mounts && volatile_path_layout "" || exit 1
+RX3_STAGE=guarded
 # Do not inherit a staging destination from the launch environment.
 RUNTIME_STAGE_DIR=/root/pdj/.rx3-stage.$$
 # Sample the held panel state before logs, module loading, locks or patching.
 # An unreadable frame is not evidence that SHIFT is released: fail closed.
 SAFE_MODE_PROBE=$(sh /mnt/iso/lib/safe-mode.sh)
 SAFE_MODE_RESULT=$?
+RX3_STAGE=panel-probed
 # This one small USB note is written even when the mods are bypassed. It lets
 # the operator distinguish a held SHIFT, an unreadable panel and an autoexec
 # that was never launched. It has no effect on rbp or module selection.
@@ -95,6 +140,12 @@ fi
 
 say()
 {
+    case "$1" in
+        STOP:*|FAILED:*|WARNING:*|*refused:*)
+            [ -n "$RX3_FIRST_ERROR" ] || RX3_FIRST_ERROR=$*
+            RX3_LAST_ERROR=$*
+            ;;
+    esac
     [ "$LOGGING" = "1" ] || return 0
     echo "$@" >> "$LOG" 2>&1
 }
@@ -235,6 +286,7 @@ fi
     say "STOP: one or more runtime modules violate their contract."
     sync; exit 1
 }
+RX3_STAGE=modules-loaded
 say "loaded modules:${LOADED_MODULES:- none}"
 
 say "=== RX3 volatile runtime, uid $(id -u) ==="
@@ -267,7 +319,7 @@ if ! mkdir "$LOCK" 2>/dev/null; then
     say "STOP: RX3 runtime already applying (or stale lock at $LOCK)"
     exit 1
 fi
-trap 'rmdir "$LOCK" 2>/dev/null' 0
+trap '_rx3_exit_code=$?; rmdir "$LOCK" 2>/dev/null; rx3_report_exit "$_rx3_exit_code"' 0
 trap 'exit 1' 1 2 15
 # End exclusive workspace entry.
 
@@ -301,6 +353,7 @@ if [ -z "$ACCEPTED" ]; then
     say "      No module was applied."
     rm -rf "$TMP"; sync; exit 1
 fi
+RX3_STAGE=player-identified
 if [ "$ACCEPTED" = "$RBP_SHA1" ]; then
     say "accepted rbp SHA-1: $RBP_SHA1"
 else
@@ -380,14 +433,18 @@ case " $LOADED_MODULES " in
 esac
 
 if defer_for_unsafe_media "$USB"; then
+    RX3_STAGE=deferred
+    RX3_LAST_ERROR=$MEDIA_GUARD_REASON
     exit 0
 fi
 
+RX3_STAGE=preparing
 run_hooks "$PREPARE_HOOKS" || {
     say "STOP: a prepare hook failed; no guarded word was written."
     discard_runtime_stage
     rm -rf "$TMP"; sync; exit 1
 }
+RX3_STAGE=prepared
 reconcile_module_set
 
 if [ "$RUNTIME_STAGE_COUNT" != 0 ] && [ "$NEED_RBP_RESTART" = 0 ]; then
@@ -406,6 +463,7 @@ if [ "$NEED_RBP_RESTART" = "0" ]; then
     rm -rf "$TMP"
     sync
     say "=== complete ==="
+    RX3_STAGE=complete
     exit 0
 fi
 
@@ -414,10 +472,13 @@ echo applying > /tmp/rx3-patch.state
 # it. On a drive that is merely being reinserted this line is the whole answer
 # to why the screen froze and the media list emptied.
 if defer_for_unsafe_media "$USB"; then
+    RX3_STAGE=deferred
+    RX3_LAST_ERROR=$MEDIA_GUARD_REASON
     exit 0
 fi
 say "restart requested by:${RESTART_REQUESTED_BY:- unknown}"
 say "stopping rbp"
+RX3_STAGE=stopping-player
 if ! stop_rbp "$PID"; then
     say "STOP: the running rbp did not stop; no guarded word was written."
     discard_runtime_stage
@@ -588,10 +649,12 @@ if ! commit_runtime_stage; then
     discard_runtime_stage
     rm -rf "$TMP"; sync; exit 1
 fi
+RX3_STAGE=resources-committed
 for ready_file in $RBP_READY_FILES; do rm -f "$ready_file"; done
 for diagnostic_file in $RBP_DIAGNOSTIC_FILES; do rm -f "$diagnostic_file"; done
 
 write_words patched
+RX3_STAGE=patching
 FAILED=$(verify_words patched)
 if [ "$FAILED" != "0" ]; then
     say "FAILED: $FAILED patch word write(s); restoring previous bytes"
@@ -611,6 +674,7 @@ fi
 say "write verified: $PATCH_COUNT/$PATCH_COUNT words"
 
 launch_rbp "$RBP_OUTPUT"
+RX3_STAGE=launching-player
 wait_for_rbp "$NEW"
 if [ ! -d "/proc/$NEW" ]; then
     # The one failure where putting the previous bytes back is useless: on a
@@ -661,6 +725,7 @@ if [ -n "$MISSING_READY" ]; then
     rm -rf "$TMP"; sync; exit 1
 fi
 say "OK: rbp active, pid=$NEW"
+RX3_STAGE=player-ready
 echo patched > /tmp/rx3-patch.state
 discard_runtime_stage
 
@@ -671,4 +736,5 @@ run_hooks "$REPORT_HOOKS" || say "WARNING: a report hook failed"
 rm -rf "$TMP"
 sync
 say "=== complete ==="
+RX3_STAGE=complete
 exit 0

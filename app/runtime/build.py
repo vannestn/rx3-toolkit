@@ -17,6 +17,7 @@ import struct
 import subprocess
 import tempfile
 import time
+import uuid
 from dataclasses import dataclass
 from typing import Callable, Iterable, Mapping, Sequence
 
@@ -536,15 +537,18 @@ def validate_arm_hook(path: pathlib.Path) -> None:
 
 
 def compile_report_sender(source: pathlib.Path, output: pathlib.Path,
-                          compiler: str | None = None) -> None:
+                          compiler: str | None = None, port: int = 50125) -> None:
     """Compile the independent, outbound-only static report process."""
     compiler = compiler or os.environ.get("CC") or shutil.which("clang")
     if not compiler:
         raise ValueError("Clang and LLD are required for the report sender")
+    if port not in (50125, 50126):
+        raise ValueError("Unsupported report destination port")
     subprocess.run([
         compiler, "--target=arm-linux-gnueabi", "-march=armv7-a", "-marm",
         "-mfloat-abi=soft", "-fno-stack-protector", "-fno-builtin", "-ffreestanding",
-        "-O2", "-Wall", "-Wextra", "-Werror", "-fuse-ld=lld", "-nostdlib", "-static",
+        "-O2", "-Wall", "-Wextra", "-Werror", f"-DREPORT_PORT={port}",
+        "-fuse-ld=lld", "-nostdlib", "-static",
         "-Wl,--build-id=none", "-Wl,-e,_start", str(source), "-o", str(output),
     ], check=True, capture_output=True, text=True)
     output.chmod(0o755)
@@ -608,6 +612,7 @@ def write_manifest(
     modules: Sequence[str],
     size: int,
     digest: str,
+    build_id: str | None = None,
 ) -> pathlib.Path:
     """Record what was written, beside what was written.
 
@@ -620,14 +625,17 @@ def write_manifest(
     that was truncated on the way out does not match its own record.
     """
     manifest = pathlib.Path(drive) / MANIFEST_NAME
-    manifest.write_text(json.dumps({
+    record = {
         "format": 1,
         "createdAt": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "firmware": firmware,
         "modules": list(modules),
         "bytes": size,
         "sha256": digest,
-    }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    }
+    if build_id is not None:
+        record["buildId"] = build_id
+    manifest.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return manifest
 
 
@@ -701,6 +709,8 @@ def build_runtime(
         )
     selected = resolve_patches(definitions, patch_ids)
     by_module = _validate_supplied_files(supplied_files, selected)
+    diagnostic_reporting = any(patch.patch_id == "position-diagnostic" for patch in selected)
+    build_id = uuid.uuid4().hex if diagnostic_reporting else None
 
     compatibility = root / "mod/compatibility.sh"
     if not compatibility.is_file():
@@ -719,9 +729,12 @@ def build_runtime(
         shutil.copy2(root / "mod/lib/volatile-guard.sh", library / "volatile-guard.sh")
         # Position diagnostics get reports even if a later native guard refuses.
         # This helper is an independent finite process, never a player preload.
-        if any(patch.patch_id == "position-diagnostic" for patch in selected):
+        if diagnostic_reporting:
             shutil.copy2(root / "mod/lib/startup-report.sh", library / "startup-report.sh")
             compile_report_sender(root / "mod/lib/report_sender.c", library / "report-send")
+            compile_report_sender(root / "mod/lib/report_sender.c", library / "report-send-status",
+                                  port=50126)
+            (library / "build-id").write_text(build_id + "\n", encoding="ascii")
         compatibility_target = modules / "compatibility/module.sh"
         compatibility_target.parent.mkdir(parents=True)
         shutil.copy2(compatibility, compatibility_target)
@@ -777,6 +790,6 @@ def build_runtime(
             temporary_output.unlink(missing_ok=True)
 
     installed = tuple(patch.patch_id for patch in selected)
-    write_manifest(output_directory, firmware, installed, size, digest)
+    write_manifest(output_directory, firmware, installed, size, digest, build_id)
     notify(Message("job.done"))
     return BuildResult(final_output, size, digest, installed)

@@ -164,3 +164,22 @@ before patching while the separate report still reaches the receiver.
 Built locally, not installed. Operator must return stopped/ejected SOUND_PRO to
 host for backup/install, then normal boot and simultaneous report/position
 capture. No position or live TD success claimed by report acceptance.
+
+Combined single-pass position diagnostic prepared — 2026-10-07:
+Prepared final image SHA-256 554a9ede1e73eaec8b3962fd2aa1c4e2a8aea2dddc16d1e12d205277990ae281,
+886784 bytes; build ID 6e70afd68cce42b19d8a4d86f708c84a. USB-B startup,
+exit-stage/refusal, Now Playing and raw position ports now have one host
+receiver. Read-only status records first/last errors, stage, shell exit code,
+selected module names, accepted-player indicator, process alive and Core-ready
+snapshot. No new native hooks. See COMBINED-PACKAGE-AUDIT.txt for exact image
+comparison and scoped risk audit. Pending installation/hardware acceptance.
+
+Combined diagnostic installed — 2026-10-07:
+After exact-package safety audit, the 554a9ede... image was copied to SOUND_PRO,
+flush/rename/readback SHA-256 verified, and disk6 safely ejected. The previous
+observation-only image and manifest are under ignored
+local/usb-backups/20261007-002024-before-combined-diagnostic. Metadata inventory
+of 1909 music/export files unchanged by size and mtime. Receive-only capture
+for UDP 50123/50124/50125/50126 started before operator reinsertion at
+local/captures/combined-20261007-01.jsonl. Physical execution, position units,
+track association and uninterrupted playback remain pending.
