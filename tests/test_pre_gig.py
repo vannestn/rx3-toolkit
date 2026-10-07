@@ -1,6 +1,7 @@
 """Pre-gig USB preparation tests use disposable folders, never a mounted stick."""
 import hashlib
 import json
+import struct
 from pathlib import Path
 import sys
 import tempfile
@@ -79,6 +80,27 @@ class PreGigTests(unittest.TestCase):
         bad_pssi[28 + 0x10:28 + 0x12] = (2).to_bytes(2, "big")
         self.assertEqual(pre_gig.decode_analysis(dat, bytes(bad_pssi))
                          ["phrase_status"], "invalid_pssi")
+
+    def test_pwv5_is_validated_and_retained_for_host_motion(self):
+        dat, ext = fixture_analysis()
+        pssi = pre_gig.sections(ext)[0][1]
+        words = struct.pack(">4H", 0x0000, 0x7fff, 0x3456, 0x1234)
+        wave = bytearray(24 + len(words))
+        wave[:4] = b"PWV5"
+        wave[4:8] = (24).to_bytes(4, "big")
+        wave[8:12] = len(wave).to_bytes(4, "big")
+        wave[12:24] = struct.pack(">III", 2, 4, 0x00960305)
+        wave[24:] = words
+        decoded = pre_gig.decode_analysis(dat, pmai(pssi, bytes(wave)))
+        self.assertEqual(decoded["waveform"]["data_hex"], words.hex())
+        from scripts.waveform_motion import WaveformMotion
+        motion = WaveformMotion(decoded["waveform"])
+        self.assertTrue(motion.at(0)["valid"])
+        self.assertIsNone(motion.at(0)["bands"])
+        self.assertFalse(motion.at(1000)["valid"])
+        bad = bytearray(wave)
+        bad[12:16] = (3).to_bytes(4, "big")
+        self.assertNotIn("waveform", pre_gig.decode_analysis(dat, pmai(pssi, bytes(bad))))
 
     def test_scan_is_read_only_and_confines_export_paths(self):
         with tempfile.TemporaryDirectory() as directory:

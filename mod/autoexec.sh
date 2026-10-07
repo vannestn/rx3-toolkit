@@ -438,6 +438,43 @@ if defer_for_unsafe_media "$USB"; then
     exit 0
 fi
 
+# This service is a separate, read-only process. It reads only the mounted
+# rekordbox export and analysis files for the host over the USB-B link. It is
+# never LD_PRELOADed into rbp, and its failure cannot change player state.
+start_metadata_server()
+{
+    [ -x /mnt/iso/lib/metadata-server ] || return 0
+    case "$USB" in /media/usb1/*|/media/usb2/*) ;; *) return 0 ;; esac
+    _rx3_old_pid=$(cat /tmp/rx3-metadata-server.pid 2>/dev/null)
+    case "$_rx3_old_pid" in
+        *[!0-9]*|'') ;;
+        *)
+            if [ "$(cat "/proc/$_rx3_old_pid/comm" 2>/dev/null)" = metadata-server ]; then
+                case "$(readlink "/proc/$_rx3_old_pid/exe" 2>/dev/null)" in
+                    /mnt/iso/lib/metadata-server*) kill "$_rx3_old_pid" 2>/dev/null || : ;;
+                esac
+            fi
+            ;;
+    esac
+    /mnt/iso/lib/metadata-server "$USB" </dev/null >/dev/null 2>&1 &
+    _rx3_metadata_pid=$!
+    echo "$_rx3_metadata_pid" > /tmp/rx3-metadata-server.pid
+    # A one-shot USB diagnostic avoids a silent failure when optional logging
+    # is disabled. This observes only our separate helper, never rbp.
+    sleep 1
+    if kill -0 "$_rx3_metadata_pid" 2>/dev/null; then
+        printf 'metadata-server running pid=%s port=50131\n' "$_rx3_metadata_pid" \
+            > "$OUT/metadata-startup.txt" 2>/dev/null
+        say "metadata transport: read-only USB files on TCP 50131"
+    else
+        wait "$_rx3_metadata_pid"
+        _rx3_metadata_exit=$?
+        printf 'metadata-server exited code=%s\n' "$_rx3_metadata_exit" \
+            > "$OUT/metadata-startup.txt" 2>/dev/null
+        say "WARNING: metadata transport exited code=$_rx3_metadata_exit"
+    fi
+}
+
 RX3_STAGE=preparing
 run_hooks "$PREPARE_HOOKS" || {
     say "STOP: a prepare hook failed; no guarded word was written."
@@ -459,6 +496,7 @@ if [ "$NEED_RBP_RESTART" = "0" ]; then
     run_hooks "$AFTER_LAUNCH_HOOKS" || say "WARNING: an after-launch hook failed"
     run_hooks "$POST_LAUNCH_HOOKS" || say "WARNING: a post-launch hook failed"
     run_hooks "$REPORT_HOOKS" || say "WARNING: a report hook failed"
+    start_metadata_server
     discard_runtime_stage
     rm -rf "$TMP"
     sync
@@ -732,6 +770,7 @@ discard_runtime_stage
 run_hooks "$AFTER_LAUNCH_HOOKS" || say "WARNING: an after-launch hook failed"
 run_hooks "$POST_LAUNCH_HOOKS" || say "WARNING: a post-launch hook failed"
 run_hooks "$REPORT_HOOKS" || say "WARNING: a report hook failed"
+start_metadata_server
 
 rm -rf "$TMP"
 sync

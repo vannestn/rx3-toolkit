@@ -554,6 +554,22 @@ def compile_report_sender(source: pathlib.Path, output: pathlib.Path,
     output.chmod(0o755)
 
 
+def compile_metadata_server(source: pathlib.Path, output: pathlib.Path,
+                            compiler: str | None = None) -> None:
+    """Compile the isolated, read-only RX3 USB metadata process."""
+    compiler = compiler or os.environ.get("CC") or shutil.which("clang")
+    if not compiler:
+        raise ValueError("Clang and LLD are required for RX3 metadata transport")
+    subprocess.run([
+        compiler, "--target=arm-linux-gnueabi", "-march=armv7-a", "-marm",
+        "-mfloat-abi=soft", "-fno-stack-protector", "-fno-builtin",
+        "-ffreestanding", "-O2", "-Wall", "-Wextra", "-Werror",
+        "-fuse-ld=lld", "-nostdlib", "-static", "-Wl,--build-id=none",
+        "-Wl,-e,_start", str(source), "-o", str(output),
+    ], check=True, capture_output=True, text=True)
+    output.chmod(0o755)
+
+
 def compile_arm_hook(source: pathlib.Path, output: pathlib.Path, compiler: str | None = None,
                      sources: tuple[pathlib.Path, ...] = ()) -> None:
     compiler = compiler or os.environ.get("CC") or shutil.which("clang")
@@ -734,6 +750,8 @@ def build_runtime(
             compile_report_sender(root / "mod/lib/report_sender.c", library / "report-send")
             compile_report_sender(root / "mod/lib/report_sender.c", library / "report-send-status",
                                   port=50126)
+            compile_metadata_server(root / "mod/lib/metadata_server.c",
+                                    library / "metadata-server")
             (library / "build-id").write_text(build_id + "\n", encoding="ascii")
         compatibility_target = modules / "compatibility/module.sh"
         compatibility_target.parent.mkdir(parents=True)

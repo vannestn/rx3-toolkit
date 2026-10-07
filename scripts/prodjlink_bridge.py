@@ -110,13 +110,16 @@ def musical_position(asset: dict, position_ms: float) -> tuple[dict, dict]:
 
 
 class BridgeState:
-    def __init__(self, manifest: dict, tracks: dict, firmware: str):
+    def __init__(self, manifest: dict, tracks: dict, firmware: str,
+                 remote_metadata: bool = False):
         self.manifest = manifest
         self.tracks = tracks
         self.firmware = firmware
+        self.remote_metadata = remote_metadata
         self.session_id = str(uuid.uuid4())
         self.sequence = 0
         self.peer = None
+        self.waveform_cache = {}
         self.decks = {number: {"now": None, "now_at": None, "position": None,
                                "position_at": None, "track_id": None,
                                "load_generation": 0, "reader_generation": None,
@@ -194,10 +197,30 @@ class BridgeState:
                   "progress_01": None, "beats_to_boundary": None, "asset_id": None}
         if timing_valid and asset:
             musical, phrase = musical_position(asset, position_ms)
+            if self.remote_metadata:
+                phrase["source"] = "deck_usb_rekordbox_analysis"
+        elif catalog and catalog.get("analysis_error"):
+            phrase["reason"] = "analysis_fetch_failed"
         elif not timing_valid:
             phrase["reason"] = "position_unavailable"
         original_bpm = (asset["grid"][0]["bpm_x100"] / 100
                         if asset and asset.get("grid") else None)
+        waveform = {"valid": False, "source": "rekordbox_pwv5",
+                    "observed_at_ms": int(pos_at*1000) if pos_at else None,
+                    "reason": "waveform_or_position_unavailable", "style": None,
+                    "intensity": None, "activity": None, "accent": None,
+                    "contrast": None, "rgb_display": None, "bands": None}
+        if timing_valid and asset and asset.get("waveform"):
+            key = asset_key(asset)
+            if key not in self.waveform_cache:
+                from waveform_motion import WaveformMotion
+                try:
+                    self.waveform_cache[key] = WaveformMotion(asset["waveform"])
+                except (ValueError, KeyError, TypeError):
+                    self.waveform_cache[key] = None
+            decoded = self.waveform_cache[key]
+            if decoded is not None:
+                waveform.update(decoded.at(position_ms))
         effective_bpm = raw["bpmX100"] / 100 if now_fresh and raw["bpmX100"] > 0 else None
         self.sequence += 1
         source = self.manifest["export_pdb_sha256"]
@@ -208,11 +231,15 @@ class BridgeState:
             "deck_index": deck-1, "model": "XDJ-RX3", "firmware": self.firmware,
             "connected": bool(now_fresh and pos_fresh),
             "capabilities": {"position": "rx3_reader_frames_44k1_provisional",
-                             "track_identity": "configured_single_export",
+                             "track_identity": ("deck_usb_export_unverified_slot"
+                                                if self.remote_metadata else
+                                                "configured_single_export"),
                              "media_slot_verified": False,
-                             "phrase": "cached_rekordbox_pssi" if asset else "unavailable"},
+                             "phrase": (("deck_usb_rekordbox_pssi" if self.remote_metadata
+                                         else "cached_rekordbox_pssi") if asset else "unavailable")},
             "track": {"valid": bool(now_fresh and track_id is not None and catalog),
-                      "source": "local_export_pdb", "observed_at_ms":
+                      "source": ("deck_usb_export_pdb" if self.remote_metadata
+                                 else "local_export_pdb"), "observed_at_ms":
                       int(observed * 1000) if observed else None,
                       "reason": None if catalog and now_fresh else "unmatched_or_stale_track",
                       "load_generation": state["load_generation"],
@@ -254,17 +281,29 @@ class BridgeState:
             "audio": {"valid": False, "source": None, "observed_at_ms": None,
                       "reason": "live_audio_levels_unavailable",
                       "rms_dbfs": None, "peak_dbfs": None},
+            "waveform": waveform,
             "rx3_raw": {"play_mode": raw["playModeRaw"] if now_fresh else None,
                         "tempo": raw["tempoRaw"] if now_fresh else None,
                         "reader_generation": position["readerGeneration"] if position else None},
         }
 
 
-def serve(catalog: Path, firmware: str, host: str, port: int,
+def serve(catalog: Path | None, firmware: str, host: str, port: int,
           now_port: int = 50123, position_port: int = 50124,
-          source: str | None = None) -> None:
-    manifest, tracks = load_catalog(catalog)
-    state = BridgeState(manifest, tracks, firmware)
+          source: str | None = None, deck_metadata: bool = False,
+          metadata_port: int = 50131) -> None:
+    remote = None
+    if deck_metadata:
+        if not source:
+            raise ValueError("--deck-metadata requires exact --source IP")
+        from remote_metadata import RemoteCatalog
+        remote = RemoteCatalog(source, metadata_port)
+        manifest, tracks = remote.manifest, remote.tracks
+    else:
+        if catalog is None:
+            raise ValueError("--catalog or --deck-metadata is required")
+        manifest, tracks = load_catalog(catalog)
+    state = BridgeState(manifest, tracks, firmware, remote_metadata=deck_metadata)
     clients: set[socket.socket] = set()
     with selectors.DefaultSelector() as selector, socket.socket() as server:
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -291,7 +330,10 @@ def serve(catalog: Path, firmware: str, host: str, port: int,
                     if (addr[0] != source if source else
                             not addr[0].startswith("169.254.")):
                         continue
-                    state.ingest(kind, data, addr[0], time.monotonic())
+                    accepted = state.ingest(kind, data, addr[0], time.monotonic())
+                    if accepted and remote and kind == "now-playing":
+                        for deck_state in state.decks.values():
+                            remote.request(deck_state["track_id"])
                 now = time.monotonic()
                 if now-last_emit < 0.05:
                     continue
@@ -308,21 +350,28 @@ def serve(catalog: Path, firmware: str, host: str, port: int,
         finally:
             for client in clients:
                 client.close()
+            if remote:
+                remote.close()
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--catalog", required=True, type=Path)
+    source_group = parser.add_mutually_exclusive_group(required=True)
+    source_group.add_argument("--catalog", type=Path)
+    source_group.add_argument("--deck-metadata", action="store_true",
+                              help="Fetch the mounted USB's PDB/ANLZ over RX3 USB-B")
     parser.add_argument("--firmware", required=True)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=50130)
     parser.add_argument("--now-port", type=int, default=50123)
     parser.add_argument("--position-port", type=int, default=50124)
     parser.add_argument("--source", help="Exact RX3 USB IPv4; default accepts link-local")
+    parser.add_argument("--metadata-port", type=int, default=50131)
     args = parser.parse_args()
     try:
         serve(args.catalog, args.firmware, args.host, args.port,
-              args.now_port, args.position_port, args.source)
+              args.now_port, args.position_port, args.source,
+              args.deck_metadata, args.metadata_port)
     except (OSError, ValueError, KeyError) as exc:
         parser.exit(1, f"RX3 bridge: {exc}\n")
 

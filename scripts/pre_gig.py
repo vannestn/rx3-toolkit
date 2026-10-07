@@ -183,6 +183,16 @@ def decode_analysis(dat: bytes, ext: bytes | None) -> dict:
               "phrases": None, "phrase_status": "missing_pssi",
               "waveform_tags": sorted({name.decode("ascii", "replace") for name, _ in
                                        dat_tags + ext_tags if name.startswith(b"PWV")})}
+    detailed = [tag for name, tag in dat_tags + ext_tags if name == b"PWV5"]
+    if len(detailed) == 1:
+        tag = detailed[0]
+        count = int.from_bytes(tag[16:20], "big") if len(tag) >= 24 else 0
+        if (len(tag) >= 24 and int.from_bytes(tag[4:8], "big") == 24 and
+                int.from_bytes(tag[12:16], "big") == 2 and
+                int.from_bytes(tag[20:24], "big") in (150 << 16, 0x00960305) and
+                0 < count <= 540000 and len(tag) == 24 + count * 2):
+            result["waveform"] = {"style": "PWV5", "rate_hz": 150,
+                                  "encoding": "hex", "data_hex": tag[24:].hex()}
     phrase_tags = [tag for name, tag in ext_tags if name == b"PSSI"]
     if not phrase_tags:
         return result

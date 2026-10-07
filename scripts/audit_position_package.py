@@ -18,7 +18,7 @@ def digest(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def audit(package, key, hook, report_sender, status_sender):
+def audit(package, key, hook, report_sender, status_sender, metadata_server):
     manifest=json.loads((package.parent/'rx3-mod-manifest.json').read_text())
     contents=package.read_bytes()
     if manifest['sha256']!=digest(contents) or manifest['bytes']!=len(contents):
@@ -42,6 +42,7 @@ def audit(package, key, hook, report_sender, status_sender):
     expected['/modules/core/librx3_core.so']=hook
     expected['/lib/report-send']=report_sender
     expected['/lib/report-send-status']=status_sender
+    expected['/lib/metadata-server']=metadata_server
     expected['/lib/build-id']=(build_id+'\n').encode('ascii')
     index=b'compatibility\ncore\nnow-playing\nposition-diagnostic\n'
     iso=pycdlib.PyCdlib();iso.open_fp(io.BytesIO(plain));seen={}
@@ -57,8 +58,9 @@ def audit(package, key, hook, report_sender, status_sender):
                     if isinstance(reference,Path): reference=reference.read_bytes()
                 else: raise ValueError('Unexpected image file: '+path)
                 if data!=reference: raise ValueError('Source/build mismatch: '+path)
-                if path in ('/lib/report-send','/lib/report-send-status') and iso.get_record(rr_path=path).rock_ridge.get_file_mode()&0o777!=0o755:
-                    raise ValueError('Report sender is not executable')
+                if path in ('/lib/report-send','/lib/report-send-status',
+                            '/lib/metadata-server') and iso.get_record(rr_path=path).rock_ridge.get_file_mode()&0o777!=0o755:
+                    raise ValueError('Standalone transport is not executable')
                 seen[path]={'bytes':len(data),'sha256':digest(data)}
     finally: iso.close()
     if set(seen)!=set(expected)|{'/modules/index'}: raise ValueError('Missing image file')
@@ -77,8 +79,10 @@ def main():
     p.add_argument('--output',required=True,type=Path)
     p.add_argument('--report-sender',type=Path,default=ROOT/'build/report-send')
     p.add_argument('--status-sender',type=Path,default=ROOT/'build/report-send-status')
+    p.add_argument('--metadata-server',type=Path,default=ROOT/'build/metadata-server')
     a=p.parse_args()
-    result=audit(a.package,a.key,a.hook,a.report_sender,a.status_sender)
+    result=audit(a.package,a.key,a.hook,a.report_sender,a.status_sender,
+                 a.metadata_server)
     with a.output.open('x') as output: json.dump(result,output,indent=2);output.write('\n')
     print('PASS:',len(result['files']),'files match; no unexpected ARM imports')
 

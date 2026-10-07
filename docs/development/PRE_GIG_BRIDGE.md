@@ -1,30 +1,30 @@
 # RX3 pre-gig export and live contract bridge
 
-## Direct USB metadata path to build next
+## Direct USB metadata on the bench
 
-The RX3 runtime receives the mounted music USB path as `$USB` from
-`autoexec.sh`. The drive remains mounted while its tracks are in use, so the
-runtime can read `PIONEER/rekordbox/export.pdb` and the corresponding
-`PIONEER/USBANLZ` files directly. Loading the mod into RAM does not itself
-copy those files into RAM or remove access to the stick. The current host-side
-catalog join is an interim implementation, **not** a requirement that the DJ
-pre-scan every USB to obtain track names or phrases.
+The RX3 runtime receives the mounted music USB path as `$USB`. A standalone,
+read-only helper serves only its classic rekordbox `export.pdb` and
+`ANLZ0000.DAT`/`.EXT` files over USB-B TCP 50131. The host parses and joins
+those files to the existing Now Playing and position packets. No audio is
+transferred. On firmware 1.19, a physical bench test resolved the playing
+track “Kesi De” and its 916-beat grid and 23 PSSI phrases directly from the
+deck. The host bridge then emitted its title, original and adjusted BPM, beat
+phase, current phrase and PWV5 motion descriptors on localhost TCP 50130.
 
-The next deck-side increment should read metadata only from the actual mounted
-music USB, identify the loaded deck's media slot and export generation, and
-associate its track ID with the matching PDB row and analysis path. Do bounded
-file reads and parsing on the mod's worker thread, never in a player callback;
-cache the selected track's title, artist, beat grid and PSSI phrases in volatile
-memory. Publish a compact identity/analysis asset once on load or media change,
-then live beat, position and phrase state on USB-B. If a read, slot association,
-or parse fails, report unknown rather than using a same-numbered ID from the
-wrong drive. Do not write to rekordbox files or keep a file descriptor open
-across drive removal. Validate this path on hardware before treating the host
-pre-gig scan as optional for a show.
+Use this bench path with the audited metadata image and a **single** music USB:
 
-The present PR has **not implemented or tested** direct deck-side PDB/ANLZ
-reading. Until it does, its live names and phrases depend on the selected
-host cache and single prepared music USB described below.
+```
+python3 scripts/prodjlink_bridge.py --deck-metadata \
+  --source 169.254.159.144 --firmware 1.19 --port 50130
+nc 127.0.0.1 50130
+```
+
+The IP is the RX3 address observed on this USB-B connection, not a fixed
+product address. The loaded deck packet still does not identify its source
+slot. Thus a second music USB can reuse a track ID and make the association
+unsafe. The host cache method below remains useful as a fallback and a way to
+inspect the export before a show; it is no longer needed for this direct bench
+test.
 
 The pre-gig scanner and bridge live in this toolkit. They require no VJ checkout
 and do not retrieve music over USB-B. The DJ's rekordbox USB is mounted on the
@@ -67,13 +67,14 @@ python3 scripts/prodjlink_bridge.py --catalog local/gigs/show-001 \
 nc 127.0.0.1 50130
 ```
 
-The bridge receives existing RX3 UDP Now Playing/position streams on
+Either bridge mode receives existing RX3 UDP Now Playing/position streams on
 50123/50124 and publishes newline-delimited JSON snapshots to TCP clients on
 localhost:50130 (override `--host`/`--port`). Each line follows the proposed
 Pro DJ Link **semantic** contract: schema/session/sequence and deck identity,
-then `track`, `transport`, `timing`, `phrase`, `mixer`, and `audio` groups. This
-is not a raw Beat Link packet emulator. Numeric track IDs resolve only against
-the explicitly selected cache. `track.source_slot` remains null and
+then `track`, `transport`, `timing`, `phrase`, `waveform`, `mixer`, and `audio`
+groups. This is not a raw Beat Link packet emulator. Numeric track IDs resolve
+against either the selected cache or the deck-served PDB. `track.source_slot`
+remains null and
 `capabilities.media_slot_verified` is false because the RX3 packet does not
 identify which USB supplied the track. **Use exactly the prepared music USB**;
 a second music USB can reuse IDs and make host-side association wrong.
@@ -84,16 +85,19 @@ marked provisional for other source sample rates. A load/reload waits for a new
 reader generation before attaching a position to the new track. Packet gaps
 invalidate timing after 500 ms and the Now Playing state after three seconds;
 unknown is null, never an invented zero. Current phrase and next phrase appear
-in the live snapshot. The full phrase map stays in the host cache and is
+in the live snapshot. The full phrase map stays in host memory or the optional cache and is
 referenced by `track.analysis_key`/`phrase.asset_id`, avoiding a large asset in
-each 20 Hz packet. Loop bounds, master/sync state, continuous mixer controls,
-audio meters, and PCM remain unavailable. `on_air` is exposed but is not a
-volume measure.
+each 20 Hz packet. PWV5 display waveform data drives intensity and activity
+proxies; it is not bass/mid/treble or live audio. Loop bounds, master/sync
+state, continuous mixer controls, audio meters, and PCM remain unavailable.
+`on_air` is exposed but is not a volume measure. An on-deck audio-sample
+request port has not been built or performance-tested.
 
 The bench rolling recorder also binds UDP 50123/50124; stop it before starting
 the bridge. The bridge never sends to the deck. A host-only TCP/UDP integration
 test and a receive-only physical paused-track smoke test passed on firmware
 1.19: the latter resolved the loaded track title, source position, and phrase
 through the selected cache. This is not a two-deck set/endurance acceptance.
-The separate UDP 50126 startup status report is still missing in the current
-diagnostic package and must be investigated before calling it gig-ready.
+The separate UDP 50126 startup status report was observed for the direct
+metadata package. The direct test has not established two-deck, long-duration,
+media-switch, or sample-rate-general acceptance, so it is not gig-ready.

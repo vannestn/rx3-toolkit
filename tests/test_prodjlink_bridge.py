@@ -60,6 +60,16 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(phrase["progress_01"], 0)
         self.assertFalse(musical_position(asset(), -1)[1]["valid"])
 
+    def test_direct_deck_metadata_provenance(self):
+        base = self.make_state()
+        state = BridgeState(base.manifest, base.tracks, "1.19", remote_metadata=True)
+        state.ingest("now-playing", now_message(), "169.254.1.2", 10.0)
+        state.ingest("position-diagnostic", pos_message(), "169.254.1.2", 10.0)
+        snapshot = state.snapshot(1, 10.1)
+        self.assertEqual(snapshot["track"]["source"], "deck_usb_export_pdb")
+        self.assertEqual(snapshot["phrase"]["source"], "deck_usb_rekordbox_analysis")
+        self.assertEqual(snapshot["capabilities"]["phrase"], "deck_usb_rekordbox_pssi")
+
     def test_live_join_stale_and_track_change_waits_for_new_reader(self):
         state = self.make_state()
         self.assertTrue(state.ingest("now-playing", now_message(), "169.254.1.2", 10.0))
