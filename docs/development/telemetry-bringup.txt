@@ -42,3 +42,6 @@ User reports playback from the rebuilt USB. Host listener received four consecut
 Deck 1: loaded=true, trackId=150, bpmX100=12809, tempoRaw=410, playModeRaw=2, onAir=true, title empty.
 Deck 2: loaded=false, trackId=0, bpmX100=0, tempoRaw=240, playModeRaw=0, onAir=true, title empty.
 Confirms physical telemetry delivery; does not validate raw tempo units, transport enum mapping, title extraction, audibility or clean stock restart. Empty deck reporting onAir=true reinforces that onAir cannot be interpreted as playing/audible. Four packets alone do not establish reliable update rate or sustained stability.
+
+Pitch-control observation:
+User confirmed initial displayed BPM matched 128.09. After moving the tempo control, user reported approximately 122; next packet (sequence 6430) reported bpmX100=12287 and tempoRaw=-15, with unchanged trackId=150 and playModeRaw=2. This supports BPM being pitch-adjusted. Values are consistent with a 123 BPM base and tempoRaw in hundredths of a percent (+4.10%, -0.15%), but that interpretation remains provisional pending a center-position check. User supplied song title locally; omitted from this public-facing log.
