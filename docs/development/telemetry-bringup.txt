@@ -45,3 +45,7 @@ Confirms physical telemetry delivery; does not validate raw tempo units, transpo
 
 Pitch-control observation:
 User confirmed initial displayed BPM matched 128.09. After moving the tempo control, user reported approximately 122; next packet (sequence 6430) reported bpmX100=12287 and tempoRaw=-15, with unchanged trackId=150 and playModeRaw=2. This supports BPM being pitch-adjusted. Values are consistent with a 123 BPM base and tempoRaw in hundredths of a percent (+4.10%, -0.15%), but that interpretation remains provisional pending a center-position check. User supplied song title locally; omitted from this public-facing log.
+
+Passive throughput observation — 2026-10-06:
+USB device enumeration reports up to 480 Mb/s; Pioneer USB network en8 reports 100baseTX full-duplex. These are enumerated link properties, not measured useful payload capacity (virtual USB Ethernet may report nominal media).
+15.01-second receive-only sample: 733 Now Playing packets, 216235 UDP payload bytes, 48.82 packets/s, 14402.47 payload bytes/s; consecutive sequences 25985–26717. No saturation/load test performed. Current feed rate is not the export limit. Any future bulk transfer needs paced hardware testing during two-deck playback and browsing.
