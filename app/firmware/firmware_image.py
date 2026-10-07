@@ -133,7 +133,7 @@ def build_autoexec_iso(source):
         parent_iso = iso_directories[relative.parent]
         file_number += 1
         iso_path = f"{parent_iso}/F{file_number:07d};1"
-        mode = 0o100755 if path.suffix == ".sh" else 0o100644
+        mode = 0o100755 if path.suffix == ".sh" or path.stat().st_mode & 0o111 else 0o100644
         iso.add_file(
             str(path),
             iso_path=iso_path,

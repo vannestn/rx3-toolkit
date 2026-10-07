@@ -26,3 +26,9 @@ if [ -e "$OUT" ]; then [ -f "$OUT" ] || exit 1; fi
     done
     echo '--- end ---'
 } > "$OUT"
+
+# Optional finite sender: isolated process, stdin only, no receiver or commands.
+# Physical acceptance is separate from host/ARM compilation checks.
+if [ -x /mnt/iso/report-send ]; then
+    /mnt/iso/report-send < "$OUT" >/dev/null 2>&1 &
+fi

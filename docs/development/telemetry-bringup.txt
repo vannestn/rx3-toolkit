@@ -108,3 +108,30 @@ backup, flush/rename/readback checks and unchanged music/export metadata
 inventory. Original working UI package remains preserved separately.
 Next: operator stock restart and corrected USB insertion, then passive dual-port
 capture. Position units/track identity remain unverified.
+
+USB-B report export development — 2026-10-07:
+User requested outbound reports to avoid moving the stick just to inspect a
+startup result, and to overlap next-build preparation with operator handling.
+Existing Now Playing is USB-B UDP but has no arbitrary report exporter.
+Built an independent observation-only static ARM sender with bounded stdin,
+12 finite nonblocking broadcast rounds on UDP 50125, no listener/file-open/
+player hooks. Existing preflight writes its USB fallback then launches sender.
+Added receive-only bounded chunk assembler and reproducible probe builder.
+Host exact-data round-trip, reordering/duplicate/refusal and executable ISO-mode
+checks pass. ARM compile/package readback passed; actual ARM/USB-B execution
+still pending. Candidate 9d970a61e56ee66f4ab892bc37eb6ed62eec3fb6bdce6569dc3000e174996757
+is 362496 bytes, modules empty. Corrected position build preserved separately.
+Package builder preserves executable source mode for the standalone binary;
+sector encryption/key handling unchanged. See preflight/USB-B-REPORT.txt.
+SOUND_PRO not mounted at preparation; no new USB install claimed.
+
+Report probe prepared on SOUND_PRO — 2026-10-07:
+Backed up previous corrected image/report/runtime under ignored
+local/usb-backups/20261007-000258-before-usb-report. Installed verified report
+probe with durable readback; 1909 music/export file size/mtime entries unchanged.
+Nine report/image targeted tests passed. Full discovery ran 477 tests: 15 ARM
+compile errors because that test invocation omitted the established LLVM/LLD
+environment, plus 15 optional skips. Reran all three affected test modules with
+the correct environment: 22 tests passed; no remaining reported failures.
+Physical USB-B report delivery remains pending. Next requirements documented in
+RX3-NEXT-STEPS.txt; track association/position acceptance precede TD timing.

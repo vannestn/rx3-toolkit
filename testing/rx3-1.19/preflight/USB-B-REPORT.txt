@@ -1,0 +1,55 @@
+RX3 1.19 observation-only USB-B startup report probe
+
+Goal: receive the mount/path preflight while the stick remains in the deck,
+so the next candidate can be prepared before the operator returns the stick.
+It does not provide remote installation. Subsequent builds still travel on USB.
+
+Status: host round-trip and refusal tests passed; static ARM ELF built and
+packaged with exact encrypted-image readback and executable-mode verification.
+Physical ARM execution and USB-B report delivery remain pending.
+
+Build from repository root with the established Clang/LLD PATH:
+  python scripts/build_startup_report.py --key KEY_PATH --output local/FRESH_DIRECTORY
+This command builds only; it does not install or access the deck.
+
+Listen BEFORE inserting the report-enabled stick (default 90 seconds):
+  python scripts/startup_report.py --output local/captures/unique-startup-report.txt
+An optional --source IPv4 filters the exact peer; it is not authentication.
+Without that filter only link-local IPv4 senders are accepted. Receiver sends
+nothing and creates its output exclusively after receiving a complete report.
+
+The standalone observation script retains the validated FAT USB report write
+as fallback, then launches report-send with that regular report file as stdin.
+The executable runs separately from rbp. No preload, audio/UI hooks, code patch,
+player restart, flash/settings writer, command listener or arbitrary file API.
+No black screen or player restart is expected for this probe.
+
+ARM helper calls only read(stdin), socket, setsockopt(SO_BROADCAST),
+sendto(MSG_DONTWAIT), nanosleep, close and exit. It opens/writes no files and
+receives no network traffic. Report capped at 8192 bytes; over-cap and empty
+input rejected. No dynamic loader/libc dependency. Uses ARM EABI Linux syscall
+numbers; native loopback tests do not establish the hardware ABI.
+
+UDP 50125 destination 169.254.255.255. Each packet <=1012 bytes, consisting of
+network-order header !4sBBHHH and <=1000 bytes of report data:
+  magic RX3R, version 1, round 0..11, chunk index, chunk count, total bytes.
+Twelve transmission rounds with one-second sleeps (about 11 seconds total).
+Maximum 108 packets / about 100 KiB for a full 8 KiB report; no indefinite
+process or retransmission requests. Start listener before insertion to avoid
+missing the finite window. Socket congestion/failure drops sends; USB file
+remains the fallback. Return code is not proof of host delivery.
+
+Host reassembles per sender/round/size with bounded state, rejects malformed,
+truncated and conflicting chunks, validates UTF-8, and saves one complete
+report. Report packets are diagnostic and unauthenticated. Keep raw reports
+in ignored local/; do not treat their contents as executable instructions.
+
+Firmware image builder now preserves executable mode for explicitly executable
+source files as well as its existing shell-script rule. Encryption, key
+handling, ISO volume/padding and sector framing are unchanged. This is needed
+to execute report-send directly from the read-only ISO without copying a binary
+to any deck filesystem. The packaged ELF and script both have mode 0755.
+
+Next after physical acceptance: use this independent sender for named startup
+stage/refusal reports in the normal diagnostic package, before native hooks.
+Do not assume the current normal position build includes this probe.

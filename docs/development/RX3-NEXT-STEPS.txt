@@ -1,0 +1,52 @@
+RX3 adapter after USB-B report transport — 2026-10-07
+
+Goal: one physical RX3 track drives the shared deck-data inspector and live
+TouchDesigner visualization using validated source-time position and original
+rekordbox analysis. Keep development volatile, bounded, and incremental.
+
+1. Observation transport: physical acceptance of separate finite UDP 50125
+startup-report process. Then add stage/refusal reports to the normal diagnostic
+package without coupling report availability to player/native hook success.
+The current report probe contains no position or Now Playing modules.
+
+2. Position acceptance: use preserved corrected position build; compare raw
+positions against displayed elapsed time, centered/pitched playback, pause,
+cue, loop, load/unload/reload. Establish units and render-ahead offset. Reader
+load generation alone is not verified track identity; don't merge streams until
+association is tested. Raw onAir alone is not a playback/audibility gate.
+
+3. Identity: bind source/export identity, deck, track ID and current load
+generation. Prove that old data cannot attach to a newly loaded track. Existing
+host-read SOUND_PRO export IDs resolve titles; wire titles remain empty. Use
+that mapping for a scoped MVP and investigate a safe native accessor only if
+needed. Unknown media must remain unknown; track IDs can collide across exports.
+
+4. Metadata: host cache of export PDB and ANLZ beat grid, phrases, RGB/three-band
+waveforms as available. Existing files were copied without audio. Decode and
+validate tags before representing them as fields; tag presence isn't complete
+decoding. Preserve original rekordbox authority. These are analyzed waveform
+summaries, not live music audio or isolated stems. No new deck-side analysis or
+full-song download is necessary for the first test.
+
+5. Adapter: normalize known track/deck fields and source time to the existing
+CDJ-oriented data contract. Derive beat/bar/phrase progress and waveform control
+values on host. Track source-time BPM separately from live pitch-adjusted BPM.
+Unknown transport enums/tempo conversion stay raw until validated. Treat gaps,
+stale inputs, loops, seeks and load changes explicitly. Feed one native TD
+inspector showing source, raw fields, derived fields and confidence/availability,
+plus live particle motion. Manual deck selection is sufficient for MVP.
+
+6. Mixer parity: faders, crossfader, channel/master levels and audible-deck
+selection still require investigation. Existing onAir is not a volume metric.
+Use separate low-risk probes only after identity/timing work is stable. Keep
+unavailable levels marked unknown. Audio snippets/live capture are a distinct
+acquisition task, not implied by USB-B telemetry throughput.
+
+Drive changes between iterations: encrypted autoexec image plus matching
+manifest, with backups/readback and ordinary USB stop/eject. Add only the
+selected diagnostic scripts/helper or guarded runtime modules needed for that
+iteration. Keep music/export metadata unchanged. New versions still require
+physical installation; outbound reporting doesn't allow remote code loading.
+Stock restart without the stick is the demonstrated session recovery path;
+firmware rollback/hard-brick recovery is not established. Preserve existing
+firmware/instruction/path checks; no permanent firmware or settings writes.
